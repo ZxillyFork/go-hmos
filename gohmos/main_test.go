@@ -223,9 +223,9 @@ func TestRealInstallation(t *testing.T) {
 }
 
 func TestGitEnvironmentIsolation(t *testing.T) {
-	env := isolatedGitEnv([]string{"PATH=/bin", "HTTPS_PROXY=http://proxy.invalid", "GIT_DIR=/unrelated/.git", "GIT_WORK_TREE=/unrelated", "GIT_INDEX_FILE=/unrelated/index", "GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=core.bare", "GIT_CONFIG_VALUE_0=true"})
+	env := isolatedGitEnv([]string{"PATH=/bin", "HTTPS_PROXY=http://proxy.invalid", "GIT_TEMPLATE_DIR=/unrelated/templates", "GIT_DIR=/unrelated/.git", "GIT_WORK_TREE=/unrelated", "GIT_INDEX_FILE=/unrelated/index", "GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=core.bare", "GIT_CONFIG_VALUE_0=true"})
 	joined := strings.Join(env, "\n")
-	for _, bad := range []string{"GIT_DIR=", "GIT_WORK_TREE=", "GIT_INDEX_FILE=", "GIT_CONFIG_"} {
+	for _, bad := range []string{"GIT_TEMPLATE_DIR=", "GIT_DIR=", "GIT_WORK_TREE=", "GIT_INDEX_FILE=", "GIT_CONFIG_"} {
 		if strings.Contains(joined, bad) {
 			t.Fatalf("leaked %s", bad)
 		}

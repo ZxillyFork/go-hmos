@@ -253,7 +253,7 @@ func (i installer) build(root string) error {
 	// repository is public and no tokens, credentials, or user Git config are saved.
 	gitEnv := isolatedGitEnv(env)
 	git := func(args ...string) error {
-		prefix := []string{"-c", "init.templateDir=", "-c", "core.hooksPath=" + filepath.Join(stage, ".no-hooks")}
+		prefix := []string{"--git-dir=" + filepath.Join(stage, ".git"), "--work-tree=" + stage, "-c", "init.templateDir=", "-c", "core.hooksPath=" + filepath.Join(stage, ".no-hooks")}
 		return command(stage, gitEnv, i.out, "git", append(prefix, args...)...)
 	}
 	fmt.Fprintln(i.out, "Fetching pinned source", i.commit)
@@ -266,7 +266,7 @@ func (i installer) build(root string) error {
 	if err := git("fetch", "--quiet", "--depth=1", "origin", i.commit); err != nil {
 		return err
 	}
-	check := exec.Command("git", "rev-parse", "--verify", "FETCH_HEAD^{commit}")
+	check := exec.Command("git", "--git-dir="+filepath.Join(stage, ".git"), "rev-parse", "--verify", "FETCH_HEAD^{commit}")
 	check.Dir, check.Env = stage, gitEnv
 	actual, err := check.Output()
 	if err != nil || strings.TrimSpace(string(actual)) != i.commit {
@@ -333,7 +333,7 @@ func isolatedGitEnv(env []string) []string {
 		// A surrounding git hook or exported worktree must never redirect this
 		// installer into another repository. Keep ordinary proxy/transport setup.
 		switch strings.ToUpper(key) {
-		case "GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_NAMESPACE", "GIT_CONFIG", "GIT_CONFIG_COUNT", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_GLOBAL":
+		case "GIT_TEMPLATE_DIR", "GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_NAMESPACE", "GIT_CONFIG", "GIT_CONFIG_COUNT", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_GLOBAL":
 			continue
 		}
 		if strings.HasPrefix(strings.ToUpper(key), "GIT_CONFIG_KEY_") || strings.HasPrefix(strings.ToUpper(key), "GIT_CONFIG_VALUE_") {
