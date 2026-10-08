@@ -332,6 +332,20 @@ TEXT runtime·callCgoSigaction(SB),NOSPLIT,$16
 	MOVL	AX, ret+24(FP)
 	RET
 
+#ifdef GOOS_openharmony
+TEXT runtime·callCgoSigprocmask(SB),NOSPLIT,$16
+	MOVQ	how+0(FP), DI
+	MOVQ	new+8(FP), SI
+	MOVQ	old+16(FP), DX
+	MOVQ	_cgo_sigprocmask(SB), AX
+	MOVQ	SP, BX	// callee-saved
+	ANDQ	$~15, SP	// alignment as per amd64 psABI
+	CALL	AX
+	MOVQ	BX, SP
+	MOVL	AX, ret+24(FP)
+	RET
+#endif
+
 TEXT runtime·sigfwd(SB),NOSPLIT,$0-32
 	MOVQ	fn+0(FP),    AX
 	MOVL	sig+8(FP),   DI

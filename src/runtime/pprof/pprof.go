@@ -883,6 +883,9 @@ var cpu struct {
 // for [syscall.SIGPROF], but note that doing so may break any profiling
 // being done by the main program.
 func StartCPUProfile(w io.Writer) error {
+	if runtime.IsOpenharmony {
+		return fmt.Errorf("CPU profiling is not supported on OpenHarmony: SIGPROF is reserved")
+	}
 	// The runtime routines allow a variable profiling rate,
 	// but in practice operating systems cannot trigger signals
 	// at more than about 500 Hz, and our processing of the

@@ -198,6 +198,10 @@ func signalWaitUntilIdle() {
 //
 //go:linkname signal_enable os/signal.signal_enable
 func signal_enable(s uint32) {
+	// Reserved OpenHarmony signals belong to libc and the host runtime.
+	if IsOpenharmony && s <= 45 {
+		return
+	}
 	if !sig.inuse {
 		// This is the first call to signal_enable. Initialize.
 		sig.inuse = true // enable reception of signals; cannot disable
@@ -227,6 +231,10 @@ func signal_enable(s uint32) {
 //
 //go:linkname signal_disable os/signal.signal_disable
 func signal_disable(s uint32) {
+	// Reserved OpenHarmony signals belong to libc and the host runtime.
+	if IsOpenharmony && s <= 45 {
+		return
+	}
 	if s >= uint32(len(sig.wanted)*32) {
 		return
 	}
@@ -241,6 +249,10 @@ func signal_disable(s uint32) {
 //
 //go:linkname signal_ignore os/signal.signal_ignore
 func signal_ignore(s uint32) {
+	// Reserved OpenHarmony signals belong to libc and the host runtime.
+	if IsOpenharmony && s <= 45 {
+		return
+	}
 	if s >= uint32(len(sig.wanted)*32) {
 		return
 	}

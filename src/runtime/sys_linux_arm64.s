@@ -446,6 +446,19 @@ TEXT runtime·callCgoSigaction(SB),NOSPLIT,$0
 	MOVW	R0, ret+24(FP)
 	RET
 
+#ifdef GOOS_openharmony
+TEXT runtime·callCgoSigprocmask(SB),NOSPLIT,$0
+	MOVD	how+0(FP), R0
+	MOVD	new+8(FP), R1
+	MOVD	old+16(FP), R2
+	MOVD	 _cgo_sigprocmask(SB), R3
+	SUB	$16, RSP		// reserve 16 bytes for sp-8 where fp may be saved.
+	BL	R3
+	ADD	$16, RSP
+	MOVW	R0, ret+24(FP)
+	RET
+#endif
+
 TEXT runtime·sigfwd(SB),NOSPLIT,$0-32
 	MOVW	sig+8(FP), R0
 	MOVD	info+16(FP), R1

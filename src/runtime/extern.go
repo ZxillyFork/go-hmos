@@ -381,6 +381,10 @@ func Version() string {
 // To view possible combinations of GOOS and GOARCH, run "go tool dist list".
 const GOOS string = goos.GOOS
 
+// IsOpenharmony reports whether this binary targets OpenHarmony.
+// It is a downstream extension: GOOS remains "linux" for compatibility.
+const IsOpenharmony bool = goos.IsOpenharmony == 1
+
 // GOARCH is the running program's architecture target:
 // one of 386, amd64, arm, s390x, and so on.
 const GOARCH string = goarch.GOARCH

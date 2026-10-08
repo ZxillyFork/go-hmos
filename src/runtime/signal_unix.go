@@ -177,7 +177,7 @@ func sigInstallGoHandler(sig uint32) bool {
 
 	// When built using c-archive or c-shared, only install signal
 	// handlers for synchronous signals and SIGPIPE and sigPreempt.
-	if (isarchive || islibrary) && t.flags&_SigPanic == 0 && sig != _SIGPIPE && sig != sigPreempt {
+	if (isarchive || islibrary) && t.flags&_SigPanic == 0 && sig != _SIGPIPE && (sig != sigPreempt || !preemptMSupported) {
 		return false
 	}
 
@@ -358,7 +358,9 @@ func doSigPreempt(gp *g, ctxt *sigctxt) {
 	}
 }
 
-const preemptMSupported = true
+// SIGURG is reserved by OpenHarmony. Until a supported signal contract is
+// established, use cooperative preemption on that platform.
+const preemptMSupported = !IsOpenharmony
 
 // preemptM sends a preemption request to mp. This request may be
 // handled asynchronously and may be coalesced with other requests to
@@ -688,7 +690,7 @@ func sighandler(sig uint32, info *siginfo, ctxt unsafe.Pointer, gp *g) {
 		return
 	}
 
-	if sig == sigPreempt && debug.asyncpreemptoff == 0 && !delayedSignal {
+	if sig == sigPreempt && preemptMSupported && debug.asyncpreemptoff == 0 && !delayedSignal {
 		// Might be a preemption signal.
 		doSigPreempt(gp, c)
 		// Even if this was definitely a preemption signal, it

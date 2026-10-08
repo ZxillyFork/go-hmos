@@ -55,8 +55,9 @@ func gotraceback() (level int32, all, crash bool) {
 }
 
 var (
-	argc int32
-	argv **byte
+	argc        int32
+	argv        **byte
+	libcEnviron **byte
 )
 
 // nosplit for use in linux startup sysargs.
@@ -76,6 +77,14 @@ func goargs() {
 	if GOOS == "windows" {
 		return
 	}
+
+	// Musl constructors do not receive argv. Read the command line after
+	// the allocator has been initialized; a sandbox may make it unavailable.
+	if IsOpenharmony && (isarchive || islibrary) {
+		argslice = readNullTerminatedStringsFromFile(procCmdline)
+		return
+	}
+
 	argslice = make([]string, argc)
 	for i := int32(0); i < argc; i++ {
 		argslice[i] = gostringnocopy(argv_index(argv, i))
@@ -95,6 +104,77 @@ func goenvs_unix() {
 	for i := int32(0); i < n; i++ {
 		envs[i] = gostring(argv_index(argv, argc+1+i))
 	}
+}
+
+func goenvs_openharmony() {
+	if libcEnviron != nil {
+		n := int32(0)
+		for argv_index(libcEnviron, n) != nil {
+			n++
+		}
+		envs = make([]string, n)
+		for i := int32(0); i < n; i++ {
+			envs[i] = gostring(argv_index(libcEnviron, i))
+		}
+		return
+	}
+
+	// A nil libc environ is an empty environment. /proc/self/environ may
+	// contain stale values that were changed or cleared before dlopen.
+}
+
+var procCmdline = []byte("/proc/self/cmdline\x00")
+
+// readNullTerminatedStringsFromFile reads a file specified by the given path
+// and returns a slice of strings. Each string in the slice is null-terminated
+// in the file.
+//
+// Parameters:
+// - path: A null-terminated byte slice representing the file path.
+//
+// Returns:
+// - A slice of strings read from the file, where each string is null-terminated.
+//
+// It opens the file, reads its contents in chunks,
+// and parses the data into a slice of strings based on null-termination.
+//
+// Note: This function will return nil if the file cannot be opened.
+func readNullTerminatedStringsFromFile(path []byte) []string {
+	fd := open(&path[0], 0 /* O_RDONLY */, 0)
+	if fd < 0 {
+		return nil
+	}
+
+	// Read the file.
+	var data []byte
+	var buf [1024]byte
+	for {
+		n := read(fd, noescape(unsafe.Pointer(&buf[0])), int32(unsafe.Sizeof(buf)))
+		if n == -4 /* EINTR */ {
+			continue
+		}
+		if n <= 0 { // EOF or error
+			break
+		}
+		data = append(data, buf[:n]...)
+	}
+
+	// Parse the data into a slice of strings.
+	var start int
+	var result = make([]string, 0, 8)
+	for i := 0; i < len(data); i++ {
+		if data[i] == 0 { // null-termination
+			if i > start {
+				result = append(result, gostring(&data[start:i][0]))
+			} else {
+				result = append(result, "")
+			}
+			start = i + 1
+		}
+	}
+
+	closefd(fd)
+	return result
 }
 
 func environ() []string {
