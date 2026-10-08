@@ -7,6 +7,7 @@
 package pprof
 
 import (
+	"bytes"
 	"io"
 	"strings"
 	"testing"
@@ -21,5 +22,17 @@ func TestOpenHarmonyCPUProfileUnsupported(t *testing.T) {
 	StopCPUProfile()
 	if cpu.profiling {
 		t.Fatal("unsupported CPU profiler remained active")
+	}
+}
+
+// Heap profiles remain supported even though signal-based CPU profiling is not.
+// The debug text path appends MaxRSS through the platform-specific rusage code.
+func TestOpenHarmonyHeapProfileDebug(t *testing.T) {
+	var buf bytes.Buffer
+	if err := Lookup("heap").WriteTo(&buf, 1); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "# MaxRSS = ") {
+		t.Fatal("heap profile lacks Linux-ABI MaxRSS output")
 	}
 }

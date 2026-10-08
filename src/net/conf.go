@@ -185,11 +185,9 @@ func goosPrefersCgo() bool {
 	case "android":
 		return true
 
-	case "linux":
-		if runtime.IsOpenharmony {
-			return true
-		}
-		return false
+	case "openharmony":
+		// Use the platform resolver's network-id and cache integration.
+		return true
 
 	default:
 		return false
@@ -278,7 +276,7 @@ func (c *conf) lookupOrder(r *Resolver, hostname string) (ret hostLookupOrder, d
 
 	// On systems that don't use /etc/resolv.conf or /etc/nsswitch.conf, we are done.
 	switch c.goos {
-	case "windows", "plan9", "android", "ios":
+	case "windows", "plan9", "android", "ios", "openharmony":
 		return fallbackOrder, nil
 	}
 

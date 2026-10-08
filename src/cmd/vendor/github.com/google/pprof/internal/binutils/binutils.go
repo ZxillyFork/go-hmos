@@ -222,7 +222,7 @@ func isLLVMObjdump(output string) bool {
 	if err != nil {
 		return false
 	}
-	if runtime.GOOS == "linux" && verMajor >= 8 {
+	if (runtime.GOOS == "linux" || runtime.GOOS == "openharmony") && verMajor >= 8 {
 		// Ensure LLVM objdump is at least version 8.0 on Linux.
 		// Some flags, like --demangle, and double dashes for options are
 		// not supported by previous versions.

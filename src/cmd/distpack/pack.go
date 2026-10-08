@@ -84,9 +84,6 @@ func main() {
 		log.Fatalf("missing $GOROOT")
 	}
 	gohostos = runtime.GOOS
-	if runtime.IsOpenharmony {
-		gohostos = "openharmony"
-	}
 	gohostarch = runtime.GOARCH
 	goos = os.Getenv("GOOS")
 	if goos == "" {

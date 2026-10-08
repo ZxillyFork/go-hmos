@@ -36,3 +36,6 @@ func OpenHarmonySignalPolicy() (reserved, application, faults bool) {
 // Keep the upstream ARM64/AMD64 address ceiling. A 39-bit kernel does not
 // establish a 39-bit user-space ABI for every OpenHarmony device.
 const OpenHarmonyHeapAddrBits = heapAddrBits
+
+// OpenHarmonyMadvDontNeedDefault is read after runtime debug initialization.
+func OpenHarmonyMadvDontNeedDefault() bool { return debug.madvdontneed != 0 }

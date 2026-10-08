@@ -2,8 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !openharmony
+//go:build arm64 && openharmony
 
-package main
+package cpu
 
-const isOpenharmony = false
+func osInit() {
+	// OpenHarmony uses the Linux ELF HWCAP ABI.
+	hwcapInit("openharmony")
+}

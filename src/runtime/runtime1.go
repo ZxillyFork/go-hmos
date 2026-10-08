@@ -80,7 +80,7 @@ func goargs() {
 
 	// Musl constructors do not receive argv. Read the command line after
 	// the allocator has been initialized; a sandbox may make it unavailable.
-	if IsOpenharmony && (isarchive || islibrary) {
+	if GOOS == "openharmony" && (isarchive || islibrary) {
 		argslice = readNullTerminatedStringsFromFile(procCmdline)
 		return
 	}
@@ -475,8 +475,9 @@ func parseRuntimeDebugVars(godebug string) {
 	debug.cgocheck = 1
 	debug.invalidptr = 1
 	debug.adaptivestackstart = 1 // set this to 0 to turn larger initial goroutine stacks off
-	if GOOS == "linux" {
-		// On Linux, MADV_FREE is faster than MADV_DONTNEED,
+	if GOOS == "linux" || GOOS == "openharmony" {
+		// With the Linux memory-management ABI used by these systems,
+		// MADV_FREE is faster than MADV_DONTNEED,
 		// but doesn't affect many of the statistics that
 		// MADV_DONTNEED does until the memory is actually
 		// reclaimed. This generally leads to poor user

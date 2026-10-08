@@ -1,2 +1,0 @@
-pkg runtime, const IsOpenharmony bool
-pkg runtime, const IsOpenharmony = false

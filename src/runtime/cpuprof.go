@@ -66,7 +66,7 @@ var cpuprof cpuProfile
 // the [testing] package's -test.cpuprofile flag instead of calling
 // SetCPUProfileRate directly.
 func SetCPUProfileRate(hz int) {
-	if IsOpenharmony && hz > 0 {
+	if GOOS == "openharmony" && hz > 0 {
 		print("runtime: CPU profiling is not supported on OpenHarmony (SIGPROF is reserved).\n")
 		return
 	}

@@ -903,7 +903,7 @@ func FindExecCmd() []string {
 		return ExecCmd
 	}
 	ExecCmd = []string{} // avoid work the second time
-	if cfg.Goos == cfg.GoHostOS() && cfg.Goarch == runtime.GOARCH {
+	if cfg.Goos == runtime.GOOS && cfg.Goarch == runtime.GOARCH {
 		return ExecCmd
 	}
 	path, err := pathcache.LookPath(fmt.Sprintf("go_%s_%s_exec", cfg.Goos, cfg.Goarch))

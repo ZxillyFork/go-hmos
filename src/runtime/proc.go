@@ -807,7 +807,7 @@ func getGodebugEarly() (string, bool) {
 	const prefix = "GODEBUG="
 	var env string
 	switch GOOS {
-	case "aix", "darwin", "ios", "dragonfly", "freebsd", "netbsd", "openbsd", "illumos", "solaris", "linux":
+	case "aix", "darwin", "ios", "dragonfly", "freebsd", "netbsd", "openbsd", "illumos", "solaris", "linux", "openharmony":
 		// Similar to goenv_unix but extracts the environment value for
 		// GODEBUG directly.
 		// TODO(moehrmann): remove when general goenvs() can be called before cpuinit()
@@ -815,7 +815,7 @@ func getGodebugEarly() (string, bool) {
 		// OpenHarmony uses musl constructors, which do not receive envp.
 		// libpreinit captures libc's environ on the C stack. Scan it
 		// directly: this runs before mallocinit and must not allocate.
-		if IsOpenharmony && (isarchive || islibrary) {
+		if GOOS == "openharmony" && (isarchive || islibrary) {
 			if libcEnviron != nil {
 				for i := int32(0); ; i++ {
 					p := argv_index(libcEnviron, i)

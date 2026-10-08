@@ -118,7 +118,7 @@ func testMain(m *testing.M) int {
 		if GOARCH == "arm64" {
 			libgodir += "_shared"
 		}
-	case "dragonfly", "freebsd", "linux", "netbsd", "openbsd", "solaris", "illumos":
+	case "dragonfly", "freebsd", "linux", "openharmony", "netbsd", "openbsd", "solaris", "illumos":
 		libgodir += "_shared"
 	}
 	cc = append(cc, "-I", filepath.Join("pkg", libgodir))
@@ -651,7 +651,7 @@ func TestSignalHandlersWithNotify(t *testing.T) {
 
 func TestPIE(t *testing.T) {
 	switch GOOS {
-	case "linux", "android":
+	case "linux", "android", "openharmony":
 		break
 	default:
 		t.Skipf("Skipping on %s", GOOS)
@@ -973,7 +973,7 @@ func TestSymbolicFunctions(t *testing.T) {
 // It must run on the target: host ELF inspection does not validate OHOS musl.
 func TestOpenHarmonyDynamicTLS(t *testing.T) {
 	globalSkip(t)
-	if !runtime.IsOpenharmony || GOOS != "openharmony" {
+	if runtime.GOOS != "openharmony" || GOOS != "openharmony" {
 		t.Skip("requires an OpenHarmony host and native C compiler")
 	}
 	testenv.MustHaveCGO(t)

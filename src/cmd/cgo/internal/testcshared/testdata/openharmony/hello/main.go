@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	if runtime.GOOS != "linux" || !runtime.IsOpenharmony {
+	if runtime.GOOS != "openharmony" {
 		panic("wrong target identity")
 	}
 	fmt.Printf("openharmony/%s (runtime.GOOS=%s)\n", runtime.GOARCH, runtime.GOOS)

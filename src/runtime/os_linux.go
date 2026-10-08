@@ -238,7 +238,7 @@ func sysargs(argc int32, argv **byte) {
 	n := argc + 1
 
 	// Musl constructors do not receive argv or auxv on OpenHarmony.
-	if !(IsOpenharmony && (isarchive || islibrary)) {
+	if !(GOOS == "openharmony" && (isarchive || islibrary)) {
 		// skip over argv, envp to get to auxv
 		for argv_index(argv, n) != nil {
 			n++
@@ -373,7 +373,7 @@ func readRandom(r []byte) int {
 }
 
 func goenvs() {
-	if IsOpenharmony && (isarchive || islibrary) {
+	if GOOS == "openharmony" && (isarchive || islibrary) {
 		goenvs_openharmony()
 		return
 	}
@@ -390,7 +390,7 @@ var _cgo_get_environ unsafe.Pointer
 //go:nosplit
 //go:nowritebarrierrec
 func libpreinit() {
-	if IsOpenharmony {
+	if GOOS == "openharmony" {
 		// This runs on a C stack before a g or Go allocator exists.
 		// OpenHarmony requires external linking with runtime/cgo.
 		if _cgo_get_environ == nil {
@@ -464,7 +464,7 @@ func rtsigprocmask(how int32, new, old *sigset, size int32)
 //go:nosplit
 //go:nowritebarrierrec
 func sigprocmask(how int32, new, old *sigset) {
-	if !IsOpenharmony || inForkedChild {
+	if GOOS != "openharmony" || inForkedChild {
 		// Calling libc after fork may deadlock on a lock held by a thread
 		// that no longer exists. The child immediately resets and execs.
 		rtsigprocmask(how, new, old, int32(unsafe.Sizeof(*new)))

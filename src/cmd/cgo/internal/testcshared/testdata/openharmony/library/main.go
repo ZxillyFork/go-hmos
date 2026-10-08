@@ -17,7 +17,7 @@ import (
 
 //export GoCheck
 func GoCheck(seed C.int) C.int {
-	if runtime.GOOS != "linux" || !runtime.IsOpenharmony || os.Getenv("OHOS_GO_TEST") != "before-dlopen" {
+	if runtime.GOOS != "openharmony" || os.Getenv("OHOS_GO_TEST") != "before-dlopen" {
 		return 1
 	}
 	var wg sync.WaitGroup

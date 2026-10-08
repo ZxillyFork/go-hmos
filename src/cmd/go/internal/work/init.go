@@ -193,7 +193,7 @@ func instrumentInit() {
 	// Check that cgo is enabled.
 	// Note: On macOS, -race does not require cgo. -asan and -msan still do.
 	if !cfg.BuildContext.CgoEnabled && (cfg.Goos != "darwin" || cfg.BuildASan || cfg.BuildMSan) {
-		if cfg.GoHostOS() != cfg.Goos || runtime.GOARCH != cfg.Goarch {
+		if runtime.GOOS != cfg.Goos || runtime.GOARCH != cfg.Goarch {
 			fmt.Fprintf(os.Stderr, "go: %s requires cgo\n", modeFlag)
 		} else {
 			fmt.Fprintf(os.Stderr, "go: %s requires cgo; enable cgo by setting CGO_ENABLED=1\n", modeFlag)

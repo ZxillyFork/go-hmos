@@ -510,7 +510,7 @@ func newPackage(args []string) *Package {
 	if s := os.Getenv("GOARCH"); s != "" {
 		goarch = s
 	}
-	goos = buildcfg.GOOS
+	goos = runtime.GOOS
 	if s := os.Getenv("GOOS"); s != "" {
 		goos = s
 	}

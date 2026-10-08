@@ -55,9 +55,6 @@ func main() {
 	}
 
 	gohostos = runtime.GOOS
-	if isOpenharmony {
-		gohostos = "openharmony"
-	}
 	switch gohostos {
 	case "aix":
 		// uname -m doesn't work under AIX

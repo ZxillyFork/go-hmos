@@ -181,8 +181,6 @@ func Check(t *testing.T) {
 	for _, file := range checkFiles {
 		required = append(required, fileFeatures(file, needApproval(file))...)
 	}
-	// This fork keeps its extra API separate from upstream release history.
-	required = append(required, fileFeatures(filepath.Join(testenv.GOROOT(t), "api/openharmony.txt"), false)...)
 	for _, file := range nextFiles {
 		required = append(required, fileFeatures(file, true)...)
 	}

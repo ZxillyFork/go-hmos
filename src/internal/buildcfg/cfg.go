@@ -22,7 +22,7 @@ import (
 var (
 	GOROOT    = os.Getenv("GOROOT") // cached for efficiency
 	GOARCH    = envOr("GOARCH", defaultGOARCH)
-	GOOS      = envOr("GOOS", hostGOOS())
+	GOOS      = envOr("GOOS", defaultGOOS)
 	GO386     = envOr("GO386", DefaultGO386)
 	GOAMD64   = goamd64()
 	GOARM     = goarm()

@@ -21,7 +21,7 @@ var _cgo_sigaction unsafe.Pointer
 //go:nosplit
 //go:nowritebarrierrec
 func sigaction(sig uint32, new, old *sigactiont) {
-	if IsOpenharmony && _cgo_sigaction == nil && !inForkedChild {
+	if GOOS == "openharmony" && _cgo_sigaction == nil && !inForkedChild {
 		throw("OpenHarmony requires libc sigaction")
 	}
 	// racewalk.go avoids adding sanitizing instrumentation to package runtime,
@@ -78,13 +78,13 @@ func sigaction(sig uint32, new, old *sigactiont) {
 		}
 
 		const EINVAL = 22
-		if ret == EINVAL && !IsOpenharmony {
+		if ret == EINVAL && GOOS != "openharmony" {
 			// libc reserves certain signals — normally 32-33 — for pthreads, and
 			// returns EINVAL for sigaction calls on those signals.  If we get EINVAL,
 			// fall back to making the syscall directly.
 			sysSigaction(sig, new, old)
 		}
-		if IsOpenharmony && ret != 0 {
+		if GOOS == "openharmony" && ret != 0 {
 			// Never bypass libc's sigchain after a rejected registration.
 			throw("OpenHarmony libc sigaction failed")
 		}

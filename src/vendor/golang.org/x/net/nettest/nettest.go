@@ -142,7 +142,7 @@ func TestableAddress(network, address string) bool {
 	switch ss := strings.Split(network, ":"); ss[0] {
 	case "unix", "unixgram", "unixpacket":
 		// Abstract unix domain sockets, a Linux-ism.
-		if address[0] == '@' && runtime.GOOS != "linux" {
+		if address[0] == '@' && runtime.GOOS != "linux" && runtime.GOOS != "openharmony" {
 			return false
 		}
 	}

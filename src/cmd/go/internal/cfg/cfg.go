@@ -40,15 +40,6 @@ var (
 	ModulesEnabled bool
 )
 
-// GoHostOS reports the toolchain platform. OpenHarmony preserves Linux's
-// runtime.GOOS for source compatibility, but must never select Linux tools.
-func GoHostOS() string {
-	if runtime.IsOpenharmony {
-		return "openharmony"
-	}
-	return runtime.GOOS
-}
-
 func exeSuffix() string {
 	if Goos == "windows" {
 		return ".exe"
@@ -151,11 +142,10 @@ func defaultContext() build.Context {
 	// We need to run steps 2 and 3 to determine what the default value
 	// of CgoEnabled would be for computing CGOChanged.
 	defaultCgoEnabled := false
-	gohostos := GoHostOS()
 	if buildcfg.DefaultCGO_ENABLED == "1" {
 		defaultCgoEnabled = true
 	} else if buildcfg.DefaultCGO_ENABLED == "0" {
-	} else if runtime.GOARCH == ctxt.GOARCH && gohostos == ctxt.GOOS {
+	} else if runtime.GOARCH == ctxt.GOARCH && runtime.GOOS == ctxt.GOOS {
 		defaultCgoEnabled = platform.CgoSupported(ctxt.GOOS, ctxt.GOARCH)
 		// Use built-in default cgo setting for GOOS/GOARCH.
 		// Note that ctxt.GOOS/GOARCH are derived from the preference list
@@ -221,7 +211,7 @@ func init() {
 // This is used by go tool to build tools for the go command's own
 // GOOS and GOARCH.
 func ForceHost() {
-	Goos = GoHostOS()
+	Goos = runtime.GOOS
 	Goarch = runtime.GOARCH
 	ExeSuffix = exeSuffix()
 	GO386 = buildcfg.DefaultGO386
@@ -264,7 +254,7 @@ func SetGOROOT(goroot string, isTestGo bool) {
 		GOROOTsrc = filepath.Join(goroot, "src")
 	}
 
-	installedGOOS = GoHostOS()
+	installedGOOS = runtime.GOOS
 	installedGOARCH = runtime.GOARCH
 	if isTestGo {
 		if testOS := os.Getenv("TESTGO_GOHOSTOS"); testOS != "" {
@@ -274,6 +264,7 @@ func SetGOROOT(goroot string, isTestGo bool) {
 			installedGOARCH = testArch
 		}
 	}
+
 	if runtime.Compiler != "gccgo" {
 		if goroot == "" {
 			build.ToolDir = ""

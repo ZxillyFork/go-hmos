@@ -6,8 +6,7 @@ env GOARCH=amd64
 ! go build -o $devnull cmd/buildid
 stderr 'openharmony requires CGO_ENABLED=1 and an OpenHarmony SDK C compiler'
 
-# Target identity remains distinct in the command even though runtime.GOOS
-# preserves the Linux compatibility contract of the original port.
+# The command and runtime share the actual OpenHarmony target identity.
 go env GOOS
 stdout '^openharmony$'
 

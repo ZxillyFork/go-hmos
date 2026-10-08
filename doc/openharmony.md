@@ -12,9 +12,10 @@ intended for physical devices; AMD64 is intended for x86_64 systems/emulators.
 The `openharmony`, `linux`, and `unix` build tags match. Linux source files are
 inherited unless explicitly excluded.
 
-For compatibility with existing OpenHarmony Go code, `runtime.GOOS` remains
-`"linux"`; `runtime.IsOpenharmony` distinguishes this target. The go command's
-GOOS, GOHOSTOS, native tool selection, and version output use `openharmony`.
+`runtime.GOOS` is `"openharmony"`. The go command's GOOS, GOHOSTOS, native
+tool selection, and version output use the same identity. Linux source reuse
+is expressed by build constraints; there is no extra public runtime platform
+discriminator.
 
 Cgo and external linking are required. Executables default to PIE. Supported
 build modes are ordinary executables/PIE, c-shared, c-archive, and Go package

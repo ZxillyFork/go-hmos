@@ -1279,7 +1279,7 @@ func (t *tester) internalLinkPIE() bool {
 
 func (t *tester) externalLinkPIE() bool {
 	// General rule is if -buildmode=pie and -linkmode=external both work, then they work together.
-	return t.internalLinkPIE() && t.extLink()
+	return (t.internalLinkPIE() || goos == "openharmony") && t.extLink()
 }
 
 // supportedBuildmode reports whether the given build mode is supported.
@@ -1363,6 +1363,14 @@ func (t *tester) registerCgoTests(heading string) {
 			if t.internalLink() && t.internalLinkPIE() {
 				cgoTest("internal-pie", "test", "internal", "pie")
 			}
+		}
+
+	case "openharmony":
+		// Only external linking is supported. Do not inherit Linux's
+		// static-link or reserved-signal assumptions.
+		if t.extLink() {
+			cgoTest("external", "testtls", "external", "")
+			cgoTest("external-pie", "testtls", "external", "pie")
 		}
 
 	case "aix", "android", "dragonfly", "freebsd", "linux", "netbsd", "openbsd":

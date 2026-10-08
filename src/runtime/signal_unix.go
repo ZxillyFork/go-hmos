@@ -360,7 +360,7 @@ func doSigPreempt(gp *g, ctxt *sigctxt) {
 
 // SIGURG is reserved by OpenHarmony. Until a supported signal contract is
 // established, use cooperative preemption on that platform.
-const preemptMSupported = !IsOpenharmony
+const preemptMSupported = GOOS != "openharmony"
 
 // preemptM sends a preemption request to mp. This request may be
 // handled asynchronously and may be coalesced with other requests to
@@ -1264,7 +1264,7 @@ var sigsetAllExiting = func() sigset {
 	// Apply GOOS-specific overrides here, rather than in osinit,
 	// because osinit may be called before sigsetAllExiting is
 	// initialized (#51913).
-	if GOOS == "linux" && iscgo {
+	if (GOOS == "linux" || GOOS == "openharmony") && iscgo {
 		// #42494 glibc and musl reserve some signals for
 		// internal use and require they not be blocked by
 		// the rest of a normal C runtime. When the go runtime

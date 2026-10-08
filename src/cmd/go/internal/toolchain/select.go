@@ -304,7 +304,7 @@ var TestVersionSwitch string
 // as a source of Go toolchains. Otherwise Exec tries the PATH but then downloads
 // a toolchain if necessary.
 func Exec(s *modload.Loader, gotoolchain string) {
-	if runtime.IsOpenharmony || cfg.Goos == "openharmony" {
+	if runtime.GOOS == "openharmony" || cfg.Goos == "openharmony" {
 		base.Fatalf("automatic toolchain switching is not supported on openharmony; install a matching port and set GOTOOLCHAIN=local")
 	}
 	log.SetPrefix("go: ")
