@@ -1,3 +1,23 @@
+# go-hmos: experimental OpenHarmony Go
+
+This fork adds an experimental OpenHarmony target to Go 1.27.
+See [the port status and limitations](doc/openharmony.md).
+
+## Quick installation
+
+With Go 1.24.6+ and Git installed, build an isolated host toolchain with one command:
+
+```text
+go run github.com/ZxillyFork/go-hmos/gohmos@feature/openharmony-go1.27 install
+```
+
+The first install builds from pinned source and takes several minutes. There are
+no prebuilt go-hmos releases yet. Your existing Go and PATH are unchanged.
+See [the installer guide](gohmos/README.md) for Windows/macOS/Linux usage, upgrades,
+reproducible commit-pinned installation, and the separate OpenHarmony SDK requirement.
+
+## Upstream Go README
+
 # The Go Programming Language
 
 Go is an open source programming language that makes it easy to build simple,

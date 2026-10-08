@@ -68,6 +68,22 @@ Read the verification limits below before deploying it.
    optional fallocate optimization is disabled so a sandbox cannot kill it
    for an unsupported syscall; existing portable file growth is used.
 
+## Install the host toolchain
+
+With official Go 1.24.6+ and Git available, run this on Linux, macOS, or Windows:
+
+```text
+go run github.com/ZxillyFork/go-hmos/gohmos@feature/openharmony-go1.27 install
+```
+
+This is a source-build preview installer, not a prebuilt release. It downloads a
+fixed full source commit and builds Go in an isolated user directory. The first
+run takes several minutes; later runs reuse the completed build. It does not
+replace your existing `go`, edit PATH, or set global Go configuration. The printed
+`gohmos` command forwards Go arguments with `GOTOOLCHAIN=local`. See the
+[installer guide](../gohmos/README.md) for exact paths, upgrades, and reproducible
+installer-commit pinning. Host installation does not install the OpenHarmony SDK.
+
 ## Build and inspect with the official SDK
 
 Bootstrap on a supported host with a compatible official Go installation:
