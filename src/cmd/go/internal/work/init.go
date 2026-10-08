@@ -218,7 +218,6 @@ func buildModeInit() {
 	}
 	gccgo := cfg.BuildToolchainName == "gccgo"
 	var codegenArg string
-	var tlsModel string
 
 	// Configure the build mode first, then verify that it is supported.
 	// That way, if the flag is completely bogus we will prefer to error out with
@@ -244,9 +243,6 @@ func buildModeInit() {
 				// suitable for inclusion in a PIE or
 				// shared library.
 				codegenArg = "-shared"
-				if cfg.Goos == "openharmony" {
-					tlsModel = "GD"
-				}
 			}
 		}
 		cfg.ExeSuffix = ".a"
@@ -259,9 +255,6 @@ func buildModeInit() {
 			switch cfg.Goos {
 			case "linux", "android", "freebsd", "openharmony":
 				codegenArg = "-shared"
-				if cfg.Goos == "openharmony" {
-					tlsModel = "GD"
-				}
 			case "windows":
 				// Do not add usual .exe suffix to the .dll file.
 				cfg.ExeSuffix = ""
@@ -357,8 +350,9 @@ func buildModeInit() {
 			cfg.BuildContext.InstallSuffix += codegenArg[1:]
 		}
 	}
-	if tlsModel != "" {
-		forcedAsmflags = append(forcedAsmflags, "-tls="+tlsModel, "-D=TLS_"+tlsModel)
+	if cfg.Goos == "openharmony" && codegenArg == "-shared" {
+		// Match automatic TLSDESC selection in both backends, including PIE.
+		forcedAsmflags = append(forcedAsmflags, "-D=TLS_GD")
 	}
 
 	switch cfg.BuildMod {

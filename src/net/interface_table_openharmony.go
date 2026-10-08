@@ -20,7 +20,7 @@ import (
 )
 
 type ifreq struct {
-	Name [16]uint8
+	Name [16]byte
 	Ifru [24]byte
 }
 
@@ -41,7 +41,7 @@ func interfaceTable(ifindex int) ([]Interface, error) {
 	defer syscall.Close(s)
 
 	var ifts []Interface
-	processed := make(map[int]int)
+	processed := make(map[int]bool)
 	for r := res; r != nil; r = r.ifa_next {
 		ifaAddr := r.ifa_addr
 		if ifaAddr == nil {
@@ -59,19 +59,14 @@ func interfaceTable(ifindex int) ([]Interface, error) {
 		if ep != 0 {
 			continue
 		}
-		{
-			ift.Index = int(*(*uint32)(unsafe.Pointer(&ifr.Ifru[:4][0])))
-			if _, ok := processed[ift.Index]; ok {
-				continue
-			}
-			if ifindex != 0 && ift.Index != ifindex {
-				continue
-			}
+		ift.Index = int(*(*uint32)(unsafe.Pointer(&ifr.Ifru[0])))
+		if processed[ift.Index] || (ifindex != 0 && ift.Index != ifindex) {
+			continue
 		}
 		// retrieve mtu
 		_, _, ep = syscall.Syscall(syscall.SYS_IOCTL, uintptr(s), syscall.SIOCGIFMTU, uintptr(unsafe.Pointer(ifr)))
 		if ep == 0 {
-			ift.MTU = int(*(*uint32)(unsafe.Pointer(&ifr.Ifru[:4][0])))
+			ift.MTU = int(*(*uint32)(unsafe.Pointer(&ifr.Ifru[0])))
 		}
 		// retrieve mac addr
 		_, _, ep = syscall.Syscall(syscall.SYS_IOCTL, uintptr(s), syscall.SIOCGIFHWADDR, uintptr(unsafe.Pointer(ifr)))
@@ -90,7 +85,7 @@ func interfaceTable(ifindex int) ([]Interface, error) {
 		}
 
 		ifts = append(ifts, ift)
-		processed[ift.Index] = 1
+		processed[ift.Index] = true
 	}
 
 	return ifts, nil
@@ -125,7 +120,7 @@ func interfaceAddrTable(ifi *Interface) ([]Addr, error) {
 		if ep != 0 {
 			continue
 		}
-		index := int(*(*uint32)(unsafe.Pointer(&ifr.Ifru[:4][0])))
+		index := int(*(*uint32)(unsafe.Pointer(&ifr.Ifru[0])))
 		if ifi != nil && ifi.Index != index {
 			continue
 		}

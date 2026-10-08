@@ -2236,10 +2236,11 @@ func span6(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
 	// a different thread, the TLS address may become invalid.
 	if !CanUse1InsnTLS(ctxt) {
 		useTLS := func(p *obj.Prog) bool {
-			// Only need to mark the second instruction, which has
-			// REG_TLS as Index. (It is okay to interrupt and restart
-			// the first instruction.)
-			return p.From.Index == REG_TLS
+			// For IE TLS only the second instruction needs marking. The
+			// descriptor sequence also saves AX on the stack and calls a
+			// non-Go resolver. Mark every Prog until AX/SP are restored,
+			// then the following TLS load, which uses a thread-local offset.
+			return p.From.Index == REG_TLS || p.Mark&tlsDescUnsafe != 0 || (isOpenharmony && p.To.Index == REG_TLS)
 		}
 		obj.MarkUnsafePoints(ctxt, s.Func().Text, newprog, useTLS, nil)
 	}
@@ -5152,33 +5153,18 @@ func (ab *AsmBuf) doasm(ctxt *obj.Link, cursym *obj.LSym, p *obj.Prog) {
 						if !ctxt.Flag_shared {
 							log.Fatalf("unknown TLS base location for linux/freebsd without -shared")
 						}
-						if ctxt.Tls == "GD" || (isOpenharmony && ctxt.Flag_shared) {
-							// General dynamic model via TLS descriptors, used on
-							// openharmony, whose musl loader rejects initial-exec
-							// TLS relocations in dlopen'ed libraries. Note that on
-							// openharmony this triggers on Flag_shared alone, because
-							// TLS loads reach here both from assembly (cmd/asm, which
-							// receives -tls=GD) and from compiler-generated code such
-							// as the g register reload after ABI0 calls (cmd/compile,
-							// which has no -tls flag).
-							//     MOV TLS, R_to
-							// becomes
-							//     [push %rax]                        (if R_to != AX)
-							//     lea runtime.tlsg@tlsdesc(%rip), %rax
-							//     call *(%rax)
-							//     [mov %rax, R_to; pop %rax]         (if R_to != AX)
-							// The R_AMD64_TLS_GD relocation covers the lea displacement;
-							// the linker turns it into R_X86_64_GOTPC32_TLSDESC plus
-							// R_X86_64_TLSDESC_CALL on the following call. The descriptor
-							// call returns the offset of the variable from the thread
-							// pointer in AX, preserving all other registers (flags may be
-							// clobbered). Like the IE form below, the result feeds the
-							// second instruction of the pair, which loads via FS.
-							dst := p.To.Reg
-							if dst != REG_AX {
-								ab.Put1(0x50) // push %rax
+						if isOpenharmony {
+							// preprocess exposes any AX save/restore as real Progs,
+							// so PCSP describes the entire descriptor sequence.
+							if p.To.Reg != REG_AX {
+								ctxt.Diag("TLS descriptor load must target AX after preprocessing: %v", p)
+								break
 							}
-							ab.Put3(0x48, 0x8d, 0x05) // lea 0(%rip), %rax
+							// The descriptor ABI returns the thread-pointer offset
+							// in AX and preserves the other registers. Keep this
+							// resolver call distinct from an ordinary Go ABI call.
+							// It has no net SP adjustment in its caller.
+							ab.Put3(0x48, 0x8d, 0x05) // lea runtime.tlsg@tlsdesc(%rip), %rax
 							cursym.AddRel(ctxt, obj.Reloc{
 								Type: objabi.R_AMD64_TLS_GD,
 								Off:  int32(p.Pc + int64(ab.Len())),
@@ -5186,12 +5172,7 @@ func (ab *AsmBuf) doasm(ctxt *obj.Link, cursym *obj.LSym, p *obj.Prog) {
 								Add:  -4,
 							})
 							ab.PutInt32(0)
-							ab.Put2(0xff, 0x10) // call *(%rax)
-							if dst != REG_AX {
-								// mov %rax, dst
-								ab.Put3(byte(0x48|(regrex[dst]&Rxb)), 0x89, byte(0xc0|reg[dst]))
-								ab.Put1(0x58) // pop %rax
-							}
+							ab.Put2(0xff, 0x10) // call *(%rax); R_X86_64_TLSDESC_CALL
 							break
 						}
 						// Note that this is not generating the same insn as the other cases.

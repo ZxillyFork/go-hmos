@@ -29,7 +29,7 @@ func TestOpenHarmonyTLSDescriptors(t *testing.T) {
 			if err := os.WriteFile(file, []byte(source), 0600); err != nil {
 				t.Fatal(err)
 			}
-			cmd := testenv.Command(t, testenv.GoToolPath(t), "tool", "asm", "-shared", "-tls=GD", "-S", "-o", filepath.Join(dir, "tls.o"), file)
+			cmd := testenv.Command(t, testenv.GoToolPath(t), "tool", "asm", "-shared", "-S", "-o", filepath.Join(dir, "tls.o"), file)
 			cmd.Env = append(cmd.Environ(), "GOOS=openharmony", "GOARCH="+arch)
 			out, err := cmd.CombinedOutput()
 			if err != nil {

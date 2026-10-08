@@ -125,20 +125,8 @@ func goenvs_openharmony() {
 
 var procCmdline = []byte("/proc/self/cmdline\x00")
 
-// readNullTerminatedStringsFromFile reads a file specified by the given path
-// and returns a slice of strings. Each string in the slice is null-terminated
-// in the file.
-//
-// Parameters:
-// - path: A null-terminated byte slice representing the file path.
-//
-// Returns:
-// - A slice of strings read from the file, where each string is null-terminated.
-//
-// It opens the file, reads its contents in chunks,
-// and parses the data into a slice of strings based on null-termination.
-//
-// Note: This function will return nil if the file cannot be opened.
+// readNullTerminatedStringsFromFile reads NUL-separated procfs arguments.
+// It returns nil when the file cannot be opened.
 func readNullTerminatedStringsFromFile(path []byte) []string {
 	fd := open(&path[0], 0 /* O_RDONLY */, 0)
 	if fd < 0 {

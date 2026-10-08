@@ -2126,23 +2126,13 @@ func (c *ctxt7) aclass(a *obj.Addr) int {
 			c.instoffset = a.Offset
 			if a.Sym != nil { // use relocation
 				if a.Sym.Type == objabi.STLSBSS {
-					switch c.ctxt.Tls {
-					default:
-						c.ctxt.Diag("%v: unknown tls model requested: %s (expected GD, IE or LE)", a, c.ctxt.Tls)
-						fallthrough
-					case "":
-						if c.ctxt.Flag_shared {
-							return C_TLS_IE
-						} else {
-							return C_TLS_LE
+					if c.ctxt.Flag_shared {
+						if buildcfg.GOOS == "openharmony" {
+							return C_TLS_GD
 						}
-					case "IE":
 						return C_TLS_IE
-					case "LE":
-						return C_TLS_LE
-					case "GD":
-						return C_TLS_GD
 					}
+					return C_TLS_LE
 				}
 				return C_ADDR
 			}

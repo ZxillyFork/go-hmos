@@ -86,29 +86,29 @@ remains unsafe. Linux syscall compatibility does not establish availability
 inside an application sandbox, including process creation, sockets, procfs,
 executable memory, signing, and background lifecycle behavior.
 
-AMD64 TLS lowering currently includes interior PUSH/CALL/POP operations in a
-single pseudo-instruction without separate PCSP/SpAdj entries. Host smoke
-tests do not prove asynchronous external-unwinder correctness. This remains
-an experimental limitation requiring target signal-stack/unwind testing.
+TLS resolver calls must preserve the Go frame layout and stack metadata.
+Target signal-stack and external-unwinder testing remains necessary; host
+code-generation checks alone do not establish device behavior.
 
 ## Tests and validation
 
 The port includes build-tag/target/codegen/driver tests, target runtime signal
 and fault tests, CPU-profile rejection tests, and timezone parser tests.
 `TestOpenHarmonyDynamicTLS` in `cmd/cgo/internal/testcshared` loads a library,
-uses 100 callbacks from four foreign pthreads, and checks environment/GODEBUG,
-GC, goroutines, timers, recovered faults, interface discovery, and preservation
-of existing reserved handlers. It requires an actual native test environment;
+uses 100 callbacks from four foreign pthreads, sets GODEBUG before dlopen to
+exercise early initialization, and checks environment, GC, goroutines, timers,
+recovered faults, interface discovery, and preservation of existing reserved
+handlers. It requires an actual native test environment;
 host cross-compilation or a skipped test is not a target runtime pass.
 
 The fixtures in that package's `testdata/openharmony` directory can also be
 cross-built for a signed target test. `loader library.so --no-network` explicitly omits
 network checks and must not be reported as network validation.
 
-Host bootstrap, focused tests, cross-compilation, and Linux-host ABI simulations
-have been exercised. Actual target SDK linking, full runtime/stdlib suites,
-physical devices, emulators, signed HAP/N-API integration, and native bootstrap
-need their own results. Build automation and detailed per-run validation
+Host bootstrap, focused tests, cross-compilation, SDK linking, and Linux-host
+ABI simulations each require results tied to the source revision under test.
+They do not establish full target runtime/stdlib coverage, physical-device or
+emulator execution, signed HAP/N-API integration, or native bootstrap. Build automation and detailed per-run validation
 records are maintained separately in `ZxillyFork/go-hmos-build`; the installer
 is a separate project. They are not part of this Go source tree.
 
