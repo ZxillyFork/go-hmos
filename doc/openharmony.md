@@ -1,210 +1,126 @@
-# Experimental OpenHarmony port (Go 1.27)
+# OpenHarmony port
 
-This is a **downstream experimental port**, not a supported upstream Go target
-or a certification of compatibility with commercial HarmonyOS NEXT devices.
-Read the verification limits below before deploying it.
+This experimental downstream port targets 64-bit OpenHarmony standard systems.
+It has not been certified on commercial HarmonyOS NEXT devices. The base is
+`release-branch.go1.27`; the official Go release and the port's toolchain
+version are distinct.
 
-## Baseline and provenance
+## Build configuration
 
-- Upstream: `golang/go`, `release-branch.go1.27` at
-  `68fa7699a27d745f90bf8630202e1a415d1b0769` (2026-10-02).
-- Latest stable at the 2026-10-08 check: **Go 1.27.1**, tag
-  `862c888e612ac346c7c4d99c9392bdfd265f33b0`.
-  The PR targets the current release-branch head, including fixes after the tag.
-- Porting reference: [OpenHarmony SIG Go](https://gitcode.com/openharmony-sig/ohos_golang_go),
-  and its Go 1.26.5 forward-port
-  [star4277/ohos-go](https://github.com/star4277/ohos-go/tree/19667c7abfc332f848b5bd1f293e4aeb0e9991a9).
-  The adapted delta is against upstream Go 1.26.5
-  `c19862e5f8415b4f24b189d065ed739517c548ba`.
-- The reference code carries the Go BSD license. Existing copyright notices,
-  `LICENSE`, and `PATENTS` are retained. No GPL application code was copied.
-  Unrelated mode changes and deleted binary test fixtures from the reference
-  were deliberately excluded. Go shared/plugin machinery was not imported.
+The targets are `GOOS=openharmony GOARCH=arm64` and `GOARCH=amd64`. ARM64 is
+intended for physical devices; AMD64 is intended for x86_64 systems/emulators.
+The `openharmony`, `linux`, and `unix` build tags match. Linux source files are
+inherited unless explicitly excluded.
 
-## Target and identity contract
+For compatibility with existing OpenHarmony Go code, `runtime.GOOS` remains
+`"linux"`; `runtime.IsOpenharmony` distinguishes this target. The go command's
+GOOS, GOHOSTOS, native tool selection, and version output use `openharmony`.
 
-- Build targets: `GOOS=openharmony GOARCH=arm64` and `GOARCH=amd64`.
-  ARM64 is the intended physical-device architecture; AMD64 is intended for
-  x86_64 OpenHarmony environments/emulators and remains experimental.
-- The `openharmony`, `linux`, and `unix` build tags all match. `_linux.go`
-  files are inherited unless explicitly excluded, as with Go's Android port.
-- **For compatibility with the prior port, `runtime.GOOS` remains `"linux"`.**
-  `runtime.IsOpenharmony` is true only on this target. `go env GOOS`,
-  `GOHOSTOS`, native tool selection, and `go version` identify OpenHarmony.
-  The extra API is recorded separately in `api/openharmony.txt`.
-- Cgo and external linking are required, including for otherwise pure-Go
-  executables. `CGO_ENABLED=0` fails with a diagnostic; it does not produce a
-  misleading Linux binary. Executables default to PIE.
-- Implemented build modes: ordinary executable/PIE, c-shared, c-archive,
-  and Go package archives. Go plugin/shared modes, race/MSan/ASan, and
-  standalone no-cgo programs are not advertised as supported.
-- Automatic toolchain switching is rejected for native or cross-target OHOS
-  builds. Stock Go downloads do not contain this port. Use `GOTOOLCHAIN=local`
-  and rebuild the port when a dependency requires a newer Go version.
+Cgo and external linking are required. Executables default to PIE. Supported
+build modes are ordinary executables/PIE, c-shared, c-archive, and Go package
+archives. Go plugin/shared modes, no-cgo executables, and race/MSan/ASan are
+not supported. Automatic toolchain switching is rejected for OpenHarmony
+because official Go downloads do not contain this port.
 
-## Why a Linux rename is insufficient
+Bootstrap the host toolchain using `src/make.bash` (or `make.bat` on Windows)
+and a supported bootstrap Go version. Set `GOTOOLCHAIN=local`. For target
+builds, set `CGO_ENABLED=1` and point `CC` at an OpenHarmony SDK compiler wrapper
+that supplies the target triple and sysroot:
 
-1. **Dynamic TLS:** both architectures emit ELF TLSDESC relocations for Go TLS
-   in c-shared/c-archive libraries. Musl cannot resolve a dlopen library's
-   initial-exec TLS to a newly allocated dynamic TLS definition. The port uses
-   real ELF TLS symbols, not a hard-coded private musl pthread/TCB slot.
-   The upstream 48-bit heap-address handling is retained; the reference
-   port's unverified 39-bit ARM64 ceiling is not carried forward.
-   The Go 1.27 ARM64 instruction-case collision and relocation numbering are
-   reconciled with upstream. Other platforms retain their prior TLS model.
-2. **Musl constructors:** `.init_array` supplies no portable argc/argv contract.
-   OHOS constructors zero these arguments and use Go 1.27's `libInit` path;
-   libc environment capture and the early GODEBUG scan do not allocate before
-   `mallocinit`. Arguments/auxv use procfs with existing fallback behavior.
-3. **Signals:** OHOS libc has a signal chain. Registration and normal mask
-   operations go through libc, rather than bypassing it with raw Linux
-   registration. The fork-child reset path still uses the raw syscall because
-   entering libc locks after fork is unsafe.
-4. **Platform services:** libc DNS is preferred for OHOS's network-id/resolver
-   integration; interface discovery uses `getifaddrs` with balanced cleanup,
-   including with `-tags=netgo`. System roots use `/etc/security/certificates`;
-   packed tzdata is read from `/etc/zoneinfo/tzdata`, with the standard
-   OHOS TZif directory layouts as fallbacks. The native Go linker's
-   optional fallocate optimization is disabled so a sandbox cannot kill it
-   for an unsupported syscall; existing portable file growth is used.
+- ARM64: `aarch64-linux-ohos`
+- AMD64: `x86_64-linux-ohos`
+- SDK sysroot: the SDK's `native/sysroot` directory
 
-## Install the host toolchain
-
-With official Go 1.24.6+ and Git available, run this on Linux, macOS, or Windows:
-
-```text
-go run github.com/ZxillyFork/go-hmos/gohmos@feature/openharmony-go1.27 install
-```
-
-This is a source-build preview installer, not a prebuilt release. It downloads a
-fixed full source commit and builds Go in an isolated user directory. The first
-run takes several minutes; later runs reuse the completed build. It does not
-replace your existing `go`, edit PATH, or set global Go configuration. The printed
-`gohmos` command forwards Go arguments with `GOTOOLCHAIN=local`. See the
-[installer guide](../gohmos/README.md) for exact paths, upgrades, and reproducible
-installer-commit pinning. Host installation does not install the OpenHarmony SDK.
-
-## Build and inspect with the official SDK
-
-Bootstrap on a supported host with a compatible official Go installation:
+For example, with `CC` already configured:
 
 ```sh
-cd src
-GOROOT_BOOTSTRAP=/path/to/official/go ./make.bash
-cd ..
-export GOTOOLCHAIN=local
-export OHOS_NDK_HOME=/path/to/official/sdk/native
-GOARCH=arm64 bash misc/openharmony/build.sh
-GOARCH=amd64 bash misc/openharmony/build.sh
+GOOS=openharmony GOARCH=arm64 CGO_ENABLED=1 go build -buildmode=c-shared -o libexample.so ./example
 ```
 
-The native SDK directory must contain `llvm/bin/clang`, `llvm/bin/llvm-readelf`
-and `sysroot`. Compiler triples are `aarch64-linux-ohos` and
-`x86_64-linux-ohos`, **not** `aarch64-linux-gnu`/Android triples.
-The helper verifies `__OHOS__`, headers, actual cross-links, c-shared/c-archive,
-PIE, netgo file selection, TLS relocations, and the SDK dynamic interpreter:
-`/lib/ld-musl-aarch64.so.1` or `/lib/ld-musl-x86_64.so.1`.
-It also cross-compiles selected standard-library tests. A passed build is
-explicitly reported as **not device execution**.
+The public OpenHarmony SDK and Huawei's commercial HarmonyOS NEXT SDK are
+separate distributions. Neither is bundled here. A native Go compiler also
+requires a native C compiler, the Go installation layout, platform-required
+signing, and a device policy permitting process execution. Producing native
+tools does not establish native self-hosting on phone applications.
 
-`misc/openharmony/download-sdk.sh` is an optional checksum-verifying helper for
-public OpenHarmony 6.1 SDK 6.1.0.31 (API 23). Set `SDK_DOWNLOAD_DIR` to a scratch
-folder. This is not Huawei's separately distributed HarmonyOS NEXT SDK.
-Review the SDK's licenses before use. No login, signing key, or SDK is bundled.
+The downstream version suffix contains `devel` so compiler/assembler/linker
+cache identities include their content build IDs. Reusing the unmodified
+upstream release identity with a changed toolchain can load incompatible
+cached object files.
 
-To compile a native toolchain's commands, set `BUILD_NATIVE_TOOLS=1` when running
-`build.sh`. The produced tools still require the source tree, standard Go
-installation layout, a usable native C compiler, executable permissions,
-platform-required signing, and a device policy allowing process execution.
-This option only cross-compiles them; it does not prove native self-hosting.
-A signed N-API bridge/HAP is normally required to call a Go c-shared library
-from ArkTS. Creating or signing that app is outside this compiler change.
+## Runtime and library behavior
 
-## Conservative runtime restrictions
+- Both architectures use ELF TLS descriptors for c-shared/c-archive libraries.
+  This avoids musl's rejection of initial-exec TLS in a dynamically loaded
+  library. No private pthread/TCB offset is used.
+- Musl constructors are not assumed to receive argc/argv. Startup uses Go 1.27's
+  library initialization path, allocation-free early environment access, and
+  procfs arguments/auxv where available. The upstream 48-bit heap-address
+  handling is retained instead of assuming every ARM64 device has a 39-bit ABI.
+- Signal registration and normal signal masking use libc's signal chain.
+  The fork-child reset path retains raw syscalls because libc locks may be
+  unsafe after fork.
+- The platform reserves signals 1–34 and uses additional signals through 45.
+  The port preserves reserved handlers except libc-chained synchronous fault
+  handling and SIGPIPE. `os/signal` does not subscribe to or ignore 1–45.
+- Asynchronous preemption is disabled rather than taking over SIGURG.
+  Cooperative safe points remain; a tight non-cooperative loop can delay
+  scheduling or GC. CPU profiling reports unsupported rather than using SIGPROF.
+- Libc DNS is preferred for system network-id/resolver integration. Interface
+  discovery uses getifaddrs with balanced resource cleanup, including with
+  `netgo`. Netgo DNS does not implement the platform's network-id/VPN policy.
+- System certificates use `/etc/security/certificates`. Application/user trust
+  policy is not obtained from the platform certificate service.
+- Timezones support packed `/etc/zoneinfo/tzdata` and the platform's TZif
+  directories. `time.Local` uses explicit `TZ` or `/etc/localtime`, then UTC;
+  it does not yet track `persist.time.timezone`. Set `TZ` before initialization
+  or use an explicit `time.Location`.
+- Native linker file growth uses the portable fallback instead of fallocate,
+  which may be prohibited by a target sandbox. Applications must provide a
+  writable temporary directory and their required OS permissions.
 
-Official NDK guidance reserves signals 1–34 and describes system use of 35–45.
-This port does not repurpose SIGURG/SIGPROF or claim all Linux signals are free:
+Do not unload a live Go runtime with `dlclose`. Set C environment variables
+before the first dlopen; concurrent C setenv/unsetenv during initialization
+remains unsafe. Linux syscall compatibility does not establish availability
+inside an application sandbox, including process creation, sockets, procfs,
+executable memory, signing, and background lifecycle behavior.
 
-- Asynchronous preemption is disabled. Cooperative safe points remain, but
-  a tight non-cooperative loop can delay scheduling/GC. Test real workloads.
-- `runtime/pprof.StartCPUProfile` returns an explicit unsupported error.
-- `os/signal` does not subscribe to or ignore reserved signals 1–45.
-  Existing host dispositions are preserved, except libc-chained synchronous
-  fault handling needed for Go panics and SIGPIPE behavior.
-- This is a deliberately conservative downstream policy. The documentation's
-  reservation language is not evidence that musl rejects every sigaction call.
-- Do not call `dlclose` on a live Go runtime. An OHOS loader may actually unload
-  code, unlike assumptions made by some Linux applications.
-- Set C environment variables before the first `dlopen`. Concurrent C
-  `setenv`/`unsetenv` while the runtime reads `environ` remains unsafe; this
-  patch does not introduce a universal process-wide environment lock.
-- `time.Local` uses explicit `TZ` or `/etc/localtime`, then falls back to UTC.
-  It does not yet subscribe to the platform timezone parameter/service; set
-  `TZ` before loading the library or use an explicit `time.Location`.
-- Netgo DNS is opt-in and does not reproduce OHOS network-id/VPN resolver
-  policy. User/app certificate policy is not obtained from the platform
-  certificate service; configure application trust explicitly when needed.
-- Linux syscall inheritance is not a sandbox guarantee. Process creation,
-  sockets, multicast/netlink, procfs, mprotect, executable mappings, signing,
-  and application permissions must be verified in the actual target app.
-  Phone apps cannot be assumed to run arbitrary executables or a Go compiler.
-- AMD64 TLS code-generation smoke tests are not a proof of every asynchronous
-  unwind path. No device-level unwind/stress certification is claimed.
+AMD64 TLS lowering currently includes interior PUSH/CALL/POP operations in a
+single pseudo-instruction without separate PCSP/SpAdj entries. Host smoke
+tests do not prove asynchronous external-unwinder correctness. This remains
+an experimental limitation requiring target signal-stack/unwind testing.
 
-## Device test procedure
+## Tests and validation
 
-After platform-required signing and authorized deployment into a suitable
-OpenHarmony test environment, run from a writable/executable test directory:
+The port includes build-tag/target/codegen/driver tests, target runtime signal
+and fault tests, CPU-profile rejection tests, and timezone parser tests.
+`TestOpenHarmonyDynamicTLS` in `cmd/cgo/internal/testcshared` loads a library,
+uses 100 callbacks from four foreign pthreads, and checks environment/GODEBUG,
+GC, goroutines, timers, recovered faults, interface discovery, and preservation
+of existing reserved handlers. It requires an actual native test environment;
+host cross-compilation or a skipped test is not a target runtime pass.
 
-```sh
-./hello
-./loader ./libgo_hmos_test.so
-./runtime.test -test.run 'TestOpenHarmony(RuntimePolicy|SynchronousFault)$'
-./runtime_pprof.test -test.run '^TestOpenHarmonyCPUProfileUnsupported$'
-```
+The fixtures in that package's `testdata/openharmony` directory can also be
+cross-built for a signed target test. `loader library.so --no-network` explicitly omits
+network checks and must not be reported as network validation.
 
-The loader sets the environment before dlopen, invokes Go from four foreign
-pthreads (100 callbacks), and checks goroutines, GC, timers, nil-fault recovery,
-and preservation of existing reserved handlers without installing or raising
-reserved signals. By default it also repeats interface discovery 100 times.
-`--no-network` explicitly omits that last check for restricted host simulations;
-it must be reported as omitted and must not be used to claim network support.
-Run broader runtime/stdlib tests and a signed HAP with its actual permissions,
-DNS/network changes, background/foreground lifecycle, repeated callbacks,
-synchronous C/Go faults, and memory-pressure stress before production use.
+Host bootstrap, focused tests, cross-compilation, and Linux-host ABI simulations
+have been exercised. Actual target SDK linking, full runtime/stdlib suites,
+physical devices, emulators, signed HAP/N-API integration, and native bootstrap
+need their own results. Build automation and detailed per-run validation
+records are maintained separately in `ZxillyFork/go-hmos-build`; the installer
+is a separate project. They are not part of this Go source tree.
 
-## Verification status and earlier testing
+## References
 
-See [the validation record](../misc/openharmony/VALIDATION.md) for exact local
-results, failed/blocked stages, and what has never run. CI's default job checks
-host bootstrap, focused tests, API, and cross-compiled Go/assembly. The manual
-SDK job is opt-in because it downloads roughly 2.3 GB; neither job is a device
-or a commercial NEXT certification.
-
-Earlier evidence, not results of this PR:
-
-- SIG's older port contains c-shared/TLS and platform tests. Its later native
-  HiShell work adds fallocate/signing adaptations; full test logs are not
-  established by the existence of a patch.
-- [star4277 upgrade notes](https://github.com/star4277/ohos-go/blob/19667c7abfc332f848b5bd1f293e4aeb0e9991a9/docs/go-upgrade-guide.md)
-  report bootstrap and highlight the pre-allocator GODEBUG crash regression.
-- [jgowdy's musl fix](https://github.com/jgowdy/go/commit/1a087d05b5cf9573876b18812d8d5516f16bbe57)
-  reports ARM64 Alpine/Ubuntu testing and includes a dlopen fixture. Generic
-  Alpine testing alone does not validate OHOS's customized musl or sandbox.
-- [FlClash HarmonyOS notes](https://github.com/shenyingjun5/FlClash-HarmonyOS/blob/harmony/docs/harmonyos.md)
-  contain device/emulator integration evidence with a pinned different Go
-  fork. Application-level evidence is useful but is not a full Go test suite.
+The port adapts the BSD-licensed OpenHarmony SIG work and
+[star4277's Go 1.26.5 forward-port](https://github.com/star4277/ohos-go/tree/19667c7abfc332f848b5bd1f293e4aeb0e9991a9),
+excluding unrelated fixture deletion, mode changes, and unsupported shared/plugin
+machinery. Existing Go copyright, LICENSE and PATENTS notices are preserved.
 
 Primary platform references:
-[NDK scope and signal reservations](https://github.com/openharmony/docs/blob/master/en/application-dev/napi/c-cpp-overview.md),
-[OHOS musl extensions](https://github.com/openharmony/docs/blob/master/en/application-dev/reference/native-lib/musl.md),
-[SDK release](https://github.com/openharmony/docs/blob/master/zh-cn/release-notes/OpenHarmony-v6.1-release.md),
-[Go release downloads](https://go.dev/dl/?mode=json).
-
-Additional ABI review item: the AMD64 assembler currently emits PUSH/CALL/POP
-inside the TLS pseudo-instruction's machine-code expansion. Those interior
-stack-pointer changes are not represented as separate `Prog.SpAdj`/PCSP
-entries. Disabling Go async preemption/CPU profiling reduces exposure but does
-not prove asynchronous external-unwinder correctness. This requires an
-explicit-instruction lowering and target signal-stack/unwind stress tests
-before removing the experimental label.
+[NDK scope and signals](https://github.com/openharmony/docs/blob/master/en/application-dev/napi/c-cpp-overview.md),
+[customized musl](https://github.com/openharmony/docs/blob/master/en/application-dev/reference/native-lib/musl.md),
+[SDK release](https://github.com/openharmony/docs/blob/master/zh-cn/release-notes/OpenHarmony-v6.1-release.md).
+Earlier application and Alpine tests are useful evidence, but do not establish
+compatibility of this revision with every OpenHarmony or NEXT environment.
