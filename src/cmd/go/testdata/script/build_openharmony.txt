@@ -1,0 +1,18 @@
+# A missing SDK/cgo must give an actionable error, not an invalid ELF binary.
+env GOOS=openharmony GOARCH=arm64 CGO_ENABLED=0
+! go build -o $devnull cmd/buildid
+stderr 'openharmony requires CGO_ENABLED=1 and an OpenHarmony SDK C compiler'
+env GOARCH=amd64
+! go build -o $devnull cmd/buildid
+stderr 'openharmony requires CGO_ENABLED=1 and an OpenHarmony SDK C compiler'
+
+# Target identity remains distinct in the command even though runtime.GOOS
+# preserves the Linux compatibility contract of the original port.
+go env GOOS
+stdout '^openharmony$'
+
+# A stock downloaded host Go would lose this fork's target support.
+env GOTOOLCHAIN=go1.999.0
+! go env GOOS
+stderr 'automatic toolchain switching is not supported on openharmony'
+! stderr 'downloading'

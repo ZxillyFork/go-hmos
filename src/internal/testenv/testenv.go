@@ -28,6 +28,13 @@ import (
 	"testing"
 )
 
+func getGoos() string {
+	if runtime.IsOpenharmony {
+		return "openharmony"
+	}
+	return runtime.GOOS
+}
+
 // Save the original environment during init for use in checks. A test
 // binary may modify its environment before calling HasExec to change its
 // behavior (such as mimicking a command-line tool), and that modified
@@ -85,7 +92,7 @@ var tryGoBuild = sync.OnceValue(func() error {
 		return err
 	}
 
-	if platform.MustLinkExternal(runtime.GOOS, runtime.GOARCH, false) {
+	if platform.MustLinkExternal(getGoos(), runtime.GOARCH, false) {
 		// We can assume that we always have a complete Go toolchain available.
 		// However, this platform requires a C linker to build even pure Go
 		// programs, including tests. Do we have one in the test environment?
@@ -353,7 +360,7 @@ func MustHaveCGO(t testing.TB) {
 // CanInternalLink reports whether the current system can link programs with
 // internal linking.
 func CanInternalLink(withCgo bool) bool {
-	return !platform.MustLinkExternal(runtime.GOOS, runtime.GOARCH, withCgo)
+	return !platform.MustLinkExternal(getGoos(), runtime.GOARCH, withCgo)
 }
 
 // SpecialBuildTypes are interesting build types that may affect linking.
@@ -377,9 +384,9 @@ func MustInternalLink(t testing.TB, with SpecialBuildTypes) {
 	if !CanInternalLink(with.Cgo) {
 		t.Helper()
 		if with.Cgo && CanInternalLink(false) {
-			t.Skipf("skipping test: internal linking on %s/%s is not supported with cgo", runtime.GOOS, runtime.GOARCH)
+			t.Skipf("skipping test: internal linking on %s/%s is not supported with cgo", getGoos(), runtime.GOARCH)
 		}
-		t.Skipf("skipping test: internal linking on %s/%s is not supported", runtime.GOOS, runtime.GOARCH)
+		t.Skipf("skipping test: internal linking on %s/%s is not supported", getGoos(), runtime.GOARCH)
 	}
 }
 

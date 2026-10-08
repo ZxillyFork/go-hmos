@@ -488,7 +488,7 @@ func (ctxt *Link) extld() []string {
 		// This only matters when link tool is called directly without explicit -extld,
 		// go tool already passes the correct linker in other cases.
 		switch buildcfg.GOOS {
-		case "darwin", "freebsd", "openbsd":
+		case "darwin", "freebsd", "openbsd", "openharmony":
 			flagExtld = []string{"clang"}
 		default:
 			flagExtld = []string{"gcc"}
@@ -1722,7 +1722,7 @@ func (ctxt *Link) hostlink() {
 		// from the beginning of the section (like sym.STYPE).
 		argv = append(argv, "-Wl,-z,nocopyreloc")
 
-		if buildcfg.GOOS == "android" {
+		if buildcfg.GOOS == "android" || buildcfg.GOOS == "openharmony" {
 			// Use lld to avoid errors from default linker (issue #38838)
 			altLinker = "lld"
 		}

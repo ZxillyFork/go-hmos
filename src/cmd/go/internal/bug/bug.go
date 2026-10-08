@@ -88,7 +88,7 @@ func printGoVersion(w io.Writer) {
 	fmt.Fprintf(w, "### What version of Go are you using (`go version`)?\n\n")
 	fmt.Fprintf(w, "<pre>\n")
 	fmt.Fprintf(w, "$ go version\n")
-	fmt.Fprintf(w, "go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	fmt.Fprintf(w, "go version %s %s/%s\n", runtime.Version(), cfg.GoHostOS(), runtime.GOARCH)
 	fmt.Fprintf(w, "</pre>\n")
 	fmt.Fprintf(w, "\n")
 }
@@ -124,8 +124,10 @@ func printOSDetails(w io.Writer) {
 		printCmdOut(w, "", "sw_vers")
 	case "linux":
 		printCmdOut(w, "uname -sr: ", "uname", "-sr")
-		printCmdOut(w, "", "lsb_release", "-a")
-		printGlibcVersion(w)
+		if !runtime.IsOpenharmony {
+			printCmdOut(w, "", "lsb_release", "-a")
+			printGlibcVersion(w)
+		}
 	case "openbsd", "netbsd", "freebsd", "dragonfly":
 		printCmdOut(w, "uname -v: ", "uname", "-v")
 	case "illumos", "solaris":

@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"cmd/go/internal/base"
+	"cmd/go/internal/cfg"
 	"cmd/go/internal/gover"
 )
 
@@ -88,7 +89,7 @@ func runVersion(ctx context.Context, cmd *base.Command, args []string) {
 		if gover.TestVersion != "" {
 			v = gover.TestVersion + " (TESTGO_VERSION)"
 		}
-		fmt.Printf("go version %s %s/%s\n", v, runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("go version %s %s/%s\n", v, cfg.GoHostOS(), runtime.GOARCH)
 		return
 	}
 

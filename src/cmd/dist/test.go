@@ -1239,6 +1239,9 @@ func (t *tester) internalLink() bool {
 	if goos == "android" {
 		return false
 	}
+	if goos == "openharmony" {
+		return false
+	}
 	if goos == "ios" {
 		return false
 	}
@@ -1786,6 +1789,8 @@ func buildModeSupported(compiler, buildmode, goos, goarch string) bool {
 			}
 		case "freebsd":
 			return goarch == "amd64"
+		case "openharmony":
+			return goarch == "arm64" || goarch == "amd64"
 		}
 		return false
 
@@ -1796,7 +1801,8 @@ func buildModeSupported(compiler, buildmode, goos, goarch string) bool {
 			"freebsd/amd64",
 			"darwin/amd64", "darwin/arm64",
 			"windows/amd64", "windows/386", "windows/arm64",
-			"wasip1/wasm":
+			"wasip1/wasm",
+			"openharmony/arm64", "openharmony/amd64":
 			return true
 		}
 		return false
@@ -1816,7 +1822,8 @@ func buildModeSupported(compiler, buildmode, goos, goarch string) bool {
 			"ios/amd64", "ios/arm64",
 			"aix/ppc64",
 			"openbsd/arm64",
-			"windows/386", "windows/amd64", "windows/arm64":
+			"windows/386", "windows/amd64", "windows/arm64",
+			"openharmony/arm64", "openharmony/amd64":
 			return true
 		}
 		return false
