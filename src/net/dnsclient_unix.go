@@ -436,6 +436,9 @@ func (conf *resolverConfig) tryUpdate(name string) {
 	conf.lastChecked = now
 
 	switch runtime.GOOS {
+	case "openharmony":
+		// NetSys owns the configuration; resolv.conf's timestamp does not
+		// change when the default network or its DNS servers change.
 	case "windows":
 		// There's no file on disk, so don't bother checking
 		// and failing.
