@@ -21,6 +21,9 @@ func OpenHarmonySignalPolicy() (reserved, application, faults bool) {
 		}
 	}
 	for sig := 46; sig < len(sigtable); sig++ {
+		if sig == sigPreempt {
+			continue
+		}
 		if sigtable[sig].flags&_SigNotify == 0 {
 			application = false
 		}

@@ -9,6 +9,7 @@ package runtime
 import (
 	"internal/abi"
 	"internal/goexperiment"
+	"internal/goos"
 	"internal/runtime/atomic"
 	"internal/runtime/sys"
 	"unsafe"
@@ -71,7 +72,9 @@ const (
 // useless), and even if it is, the application has to be ready for
 // spurious SIGURG. SIGIO wouldn't be a bad choice either, but is more
 // likely to be used for real.
-const sigPreempt = _SIGURG
+// OpenHarmony reserves SIGURG for the system. Use a private real-time signal
+// there; os/signal must not change its disposition or receive preemptions.
+const sigPreempt = _SIGURG + (sigPreemptOpenHarmony-_SIGURG)*goos.IsOpenharmony
 
 // Stores the signal handlers registered before Go installed its own.
 // These signal handlers will be invoked in cases where Go doesn't want to
@@ -133,6 +136,9 @@ func initsig(preinit bool) {
 		// We don't need to use atomic operations here because
 		// there shouldn't be any other goroutines running yet.
 		fwdSig[i] = getsig(i)
+		if GOOS == "openharmony" && i == sigPreempt && fwdSig[i] != _SIG_DFL && fwdSig[i] != _SIG_IGN {
+			throw("signal 64 is already in use; OpenHarmony Go requires it for preemption")
+		}
 
 		if !sigInstallGoHandler(i) {
 			// Even if we are not installing a signal handler,
@@ -358,9 +364,7 @@ func doSigPreempt(gp *g, ctxt *sigctxt) {
 	}
 }
 
-// SIGURG is reserved by OpenHarmony. Until a supported signal contract is
-// established, use cooperative preemption on that platform.
-const preemptMSupported = GOOS != "openharmony"
+const preemptMSupported = true
 
 // preemptM sends a preemption request to mp. This request may be
 // handled asynchronously and may be coalesced with other requests to

@@ -76,5 +76,5 @@ var sigtable = [...]sigTabT{
 	/* 61 */ {_SigNotify, "signal 61"},
 	/* 62 */ {_SigNotify, "signal 62"},
 	/* 63 */ {_SigNotify, "signal 63"},
-	/* 64 */ {_SigNotify, "signal 64"},
+	/* 64 */ {_SigIgn, "signal 64: Go preemption"},
 }

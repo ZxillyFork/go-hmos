@@ -208,6 +208,13 @@ non-Go thread, it will act as described above, except that if there is
 an existing non-Go signal handler, that handler will be installed
 before raising the signal.
 
+# OpenHarmony
+
+OpenHarmony reserves signals 1 through 45 for the system. Go reserves signal
+64 for asynchronous preemption, including in c-archive and c-shared builds.
+[Notify], [Reset], and [Ignore] have no effect on these signals. Non-Go code
+must not install a handler for signal 64 while using the Go runtime.
+
 # Windows
 
 On Windows a ^C (Control-C) or ^BREAK (Control-Break) normally cause

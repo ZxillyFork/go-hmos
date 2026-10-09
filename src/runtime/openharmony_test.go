@@ -20,8 +20,8 @@ func TestOpenHarmonyRuntimePolicy(t *testing.T) {
 	if runtime.OpenHarmonyHeapAddrBits != 48 {
 		t.Fatalf("heap address ceiling = %d, want upstream 48-bit handling", runtime.OpenHarmonyHeapAddrBits)
 	}
-	if runtime.PreemptMSupported {
-		t.Fatal("asynchronous preemption must not take over reserved SIGURG")
+	if !runtime.PreemptMSupported {
+		t.Fatal("asynchronous preemption is not supported")
 	}
 	reserved, application, faults := runtime.OpenHarmonySignalPolicy()
 	if !reserved || !application || !faults {
