@@ -89,7 +89,7 @@ x_cgo_getstackbound(uintptr bounds[2])
 	addr = pthread_get_stackaddr_np(pthread_self());
 	size = pthread_get_stacksize_np(pthread_self());
 	addr = (void*)((uintptr)addr - size); // convert to low address
-#elif defined(__GLIBC__) || defined(__BIONIC__) || (defined(__sun) && !defined(__illumos__))
+#elif defined(__GLIBC__) || defined(__BIONIC__) || defined(__OHOS__) || (defined(__sun) && !defined(__illumos__))
 	// pthread_getattr_np is a GNU extension supported in glibc.
 	// Solaris is not glibc but does support pthread_getattr_np
 	// (and the fallback doesn't work...). Illumos does not.

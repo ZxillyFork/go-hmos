@@ -9,6 +9,7 @@ package runtime
 import (
 	"internal/abi"
 	"internal/goexperiment"
+	"internal/goos"
 	"internal/runtime/atomic"
 	"internal/runtime/sys"
 	"unsafe"
@@ -71,7 +72,9 @@ const (
 // useless), and even if it is, the application has to be ready for
 // spurious SIGURG. SIGIO wouldn't be a bad choice either, but is more
 // likely to be used for real.
-const sigPreempt = _SIGURG
+// OpenHarmony reserves SIGURG for the system. Use a private real-time signal
+// there; os/signal must not change its disposition or receive preemptions.
+const sigPreempt = _SIGURG + (sigPreemptOpenHarmony-_SIGURG)*goos.IsOpenharmony
 
 // Stores the signal handlers registered before Go installed its own.
 // These signal handlers will be invoked in cases where Go doesn't want to
@@ -133,6 +136,9 @@ func initsig(preinit bool) {
 		// We don't need to use atomic operations here because
 		// there shouldn't be any other goroutines running yet.
 		fwdSig[i] = getsig(i)
+		if GOOS == "openharmony" && i == sigPreempt && fwdSig[i] != _SIG_DFL && fwdSig[i] != _SIG_IGN {
+			throw("signal 64 is already in use; OpenHarmony Go requires it for preemption")
+		}
 
 		if !sigInstallGoHandler(i) {
 			// Even if we are not installing a signal handler,
@@ -177,7 +183,7 @@ func sigInstallGoHandler(sig uint32) bool {
 
 	// When built using c-archive or c-shared, only install signal
 	// handlers for synchronous signals and SIGPIPE and sigPreempt.
-	if (isarchive || islibrary) && t.flags&_SigPanic == 0 && sig != _SIGPIPE && sig != sigPreempt {
+	if (isarchive || islibrary) && t.flags&_SigPanic == 0 && sig != _SIGPIPE && (sig != sigPreempt || !preemptMSupported) {
 		return false
 	}
 
@@ -688,7 +694,7 @@ func sighandler(sig uint32, info *siginfo, ctxt unsafe.Pointer, gp *g) {
 		return
 	}
 
-	if sig == sigPreempt && debug.asyncpreemptoff == 0 && !delayedSignal {
+	if sig == sigPreempt && preemptMSupported && debug.asyncpreemptoff == 0 && !delayedSignal {
 		// Might be a preemption signal.
 		doSigPreempt(gp, c)
 		// Even if this was definitely a preemption signal, it
@@ -1262,7 +1268,7 @@ var sigsetAllExiting = func() sigset {
 	// Apply GOOS-specific overrides here, rather than in osinit,
 	// because osinit may be called before sigsetAllExiting is
 	// initialized (#51913).
-	if GOOS == "linux" && iscgo {
+	if (GOOS == "linux" || GOOS == "openharmony") && iscgo {
 		// #42494 glibc and musl reserve some signals for
 		// internal use and require they not be blocked by
 		// the rest of a normal C runtime. When the go runtime

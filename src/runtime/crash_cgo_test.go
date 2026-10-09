@@ -334,8 +334,8 @@ func TestCgoCrashTraceback(t *testing.T) {
 	t.Parallel()
 	switch platform := runtime.GOOS + "/" + runtime.GOARCH; platform {
 	case "darwin/amd64":
-	case "linux/amd64":
-	case "linux/arm64":
+	case "linux/amd64", "openharmony/amd64":
+	case "linux/arm64", "openharmony/arm64":
 	case "linux/loong64":
 	case "linux/ppc64":
 	case "linux/ppc64le":
@@ -360,8 +360,8 @@ func TestCgoCrashTracebackGo(t *testing.T) {
 	t.Parallel()
 	switch platform := runtime.GOOS + "/" + runtime.GOARCH; platform {
 	case "darwin/amd64":
-	case "linux/amd64":
-	case "linux/arm64":
+	case "linux/amd64", "openharmony/amd64":
+	case "linux/arm64", "openharmony/arm64":
 	case "linux/loong64":
 	case "linux/ppc64":
 	case "linux/ppc64le":
@@ -791,8 +791,8 @@ func TestSegv(t *testing.T) {
 	}
 
 	for _, test := range []string{"Segv", "SegvInCgo", "TgkillSegv", "TgkillSegvInCgo"} {
-		// The tgkill variants only run on Linux.
-		if runtime.GOOS != "linux" && strings.HasPrefix(test, "Tgkill") {
+		// The tgkill variants use the Linux signal ABI.
+		if runtime.GOOS != "linux" && runtime.GOOS != "openharmony" && strings.HasPrefix(test, "Tgkill") {
 			continue
 		}
 

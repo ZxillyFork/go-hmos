@@ -1031,8 +1031,8 @@ func TestLockOSThreadTemplateThreadRace(t *testing.T) {
 }
 
 func TestLockOSThreadVgetrandom(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skipf("vgetrandom only relevant on Linux")
+	if runtime.GOOS != "linux" && runtime.GOOS != "openharmony" {
+		t.Skipf("vgetrandom only relevant on systems using the Linux ABI")
 	}
 	output := runTestProg(t, "testprog", "LockOSThreadVgetrandom")
 	want := "OK\n"
