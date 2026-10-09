@@ -807,10 +807,30 @@ func getGodebugEarly() (string, bool) {
 	const prefix = "GODEBUG="
 	var env string
 	switch GOOS {
-	case "aix", "darwin", "ios", "dragonfly", "freebsd", "netbsd", "openbsd", "illumos", "solaris", "linux":
+	case "aix", "darwin", "ios", "dragonfly", "freebsd", "netbsd", "openbsd", "illumos", "solaris", "linux", "openharmony":
 		// Similar to goenv_unix but extracts the environment value for
 		// GODEBUG directly.
 		// TODO(moehrmann): remove when general goenvs() can be called before cpuinit()
+
+		// OpenHarmony uses musl constructors, which do not receive envp.
+		// libpreinit captures libc's environ on the C stack. Scan it
+		// directly: this runs before mallocinit and must not allocate.
+		if GOOS == "openharmony" && (isarchive || islibrary) {
+			if libcEnviron != nil {
+				for i := int32(0); ; i++ {
+					p := argv_index(libcEnviron, i)
+					if p == nil {
+						break
+					}
+					s := unsafe.String(p, findnull(p))
+					if stringslite.HasPrefix(s, prefix) {
+						return gostringnocopy(p)[len(prefix):], true
+					}
+				}
+			}
+			return env, true
+		}
+
 		n := int32(0)
 		for argv_index(argv, argc+1+n) != nil {
 			n++

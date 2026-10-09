@@ -194,10 +194,17 @@ func signalWaitUntilIdle() {
 	}
 }
 
+// OpenHarmony makes signals 46-64 available to applications. Reserve the last
+// one for the runtime, leaving the system's signals 1-45 untouched.
+const sigPreemptOpenHarmony = 64
+
 // Must only be called from a single goroutine at a time.
 //
 //go:linkname signal_enable os/signal.signal_enable
 func signal_enable(s uint32) {
+	if GOOS == "openharmony" && (s <= 45 || s == sigPreemptOpenHarmony) {
+		return
+	}
 	if !sig.inuse {
 		// This is the first call to signal_enable. Initialize.
 		sig.inuse = true // enable reception of signals; cannot disable
@@ -227,6 +234,9 @@ func signal_enable(s uint32) {
 //
 //go:linkname signal_disable os/signal.signal_disable
 func signal_disable(s uint32) {
+	if GOOS == "openharmony" && (s <= 45 || s == sigPreemptOpenHarmony) {
+		return
+	}
 	if s >= uint32(len(sig.wanted)*32) {
 		return
 	}
@@ -241,6 +251,9 @@ func signal_disable(s uint32) {
 //
 //go:linkname signal_ignore os/signal.signal_ignore
 func signal_ignore(s uint32) {
+	if GOOS == "openharmony" && (s <= 45 || s == sigPreemptOpenHarmony) {
+		return
+	}
 	if s >= uint32(len(sig.wanted)*32) {
 		return
 	}
