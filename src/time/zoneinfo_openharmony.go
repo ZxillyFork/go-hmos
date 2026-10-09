@@ -44,7 +44,7 @@ func ohosLocalZone() string {
 }
 
 // ohosReadTimeZone reads persist.time.timezone from the parameter service's
-// shared trie. Use pread rather than a persistent mapping so initialization
+// shared trie. Read the file rather than retaining a mapping so initialization
 // cannot retain a stale mapping when the service grows its workspace.
 func ohosReadTimeZone(path string) string {
 	fd, err := open(path)
@@ -113,7 +113,7 @@ func ohosReadTimeZone(path string) string {
 			return ""
 		}
 		var data [len(name) + 1 + 96]byte
-		if !read(data[:len(name)+1+n], offset+8) || string(data[:len(name)]) != name || data[len(name)] != 0 {
+		if !read(data[:len(name)+1+n], offset+8) || string(data[:len(name)]) != name || data[len(name)] != '=' {
 			return ""
 		}
 		if !read(entry[:], offset) {

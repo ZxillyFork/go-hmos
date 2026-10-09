@@ -31,7 +31,7 @@ func TestOpenHarmonySystemTimeZone(t *testing.T) {
 		const name = "persist.time.timezone"
 		b[244+5] = byte(len(name))
 		binary.LittleEndian.PutUint16(b[244+6:], uint16(len("Asia/Shanghai")))
-		copy(b[252:], name+"\x00Asia/Shanghai")
+		copy(b[252:], name+"=Asia/Shanghai")
 		return b
 	}
 	for _, test := range []struct {
@@ -42,7 +42,7 @@ func TestOpenHarmonySystemTimeZone(t *testing.T) {
 		{"valid", func(b []byte) []byte { return b }, "Asia/Shanghai"},
 		{"truncated", func(b []byte) []byte { return b[:260] }, ""},
 		{"offset-outside-workspace", func(b []byte) []byte { binary.LittleEndian.PutUint32(b[52:], 0xfffffff0); return b }, ""},
-		{"cyclic-trie", func(b []byte) []byte { binary.LittleEndian.PutUint32(b[84:], 40); b[108] = 'z'; return b }, ""},
+		{"cyclic-trie", func(b []byte) []byte { binary.LittleEndian.PutUint32(b[84:], 40); b[108] = 'a'; return b }, ""},
 		{"write-in-progress", func(b []byte) []byte { binary.LittleEndian.PutUint32(b[244:], 0x80000000); return b }, ""},
 		{"wrong-key", func(b []byte) []byte { b[252] = 'x'; return b }, ""},
 	} {
