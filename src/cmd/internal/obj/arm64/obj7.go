@@ -852,6 +852,18 @@ func preprocess(ctxt *obj.Link, cursym *obj.LSym, newprog obj.ProgAlloc) {
 			p.To.Reg = retReg
 			p.Spadj = +c.autosize
 
+		case AMOVD:
+			// OpenHarmony's TLS helpers preserve LR with an atomic indexed
+			// store/load, without constructing a Go frame below SP where the
+			// C TLS resolver could overwrite the saved frame pointer.
+			if buildcfg.GOOS == "openharmony" {
+				if p.Scond == C_XPRE && p.To.Type == obj.TYPE_MEM && p.To.Reg == REGSP {
+					p.Spadj = int32(-p.To.Offset)
+				} else if p.Scond == C_XPOST && p.From.Type == obj.TYPE_MEM && p.From.Reg == REGSP {
+					p.Spadj = int32(-p.From.Offset)
+				}
+			}
+
 		case AADD, ASUB:
 			if p.To.Type == obj.TYPE_REG && p.To.Reg == REGSP && p.From.Type == obj.TYPE_CONST {
 				if p.As == AADD {

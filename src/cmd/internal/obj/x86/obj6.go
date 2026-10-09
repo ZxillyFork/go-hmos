@@ -611,7 +611,8 @@ func rewriteToPcrel(ctxt *obj.Link, p *obj.Prog, newprog obj.ProgAlloc) {
 
 // Prog.mark
 const (
-	markBit = 1 << 0 // used in errorCheck to avoid duplicate work
+	markBit       = 1 << 0 // used in errorCheck to avoid duplicate work
+	tlsDescUnsafe = 1 << 1 // temporary register/stack state in a TLS descriptor sequence
 )
 
 func preprocess(ctxt *obj.Link, cursym *obj.LSym, newprog obj.ProgAlloc) {
@@ -733,6 +734,45 @@ func preprocess(ctxt *obj.Link, cursym *obj.LSym, newprog obj.ProgAlloc) {
 	// TODO: are there other cases (e.g., wrapper functions) that need marking?
 	if autoffset != 0 {
 		p.Pos = p.Pos.WithXlogue(src.PosPrologueEnd)
+	}
+
+	if isOpenharmony && ctxt.Arch.Family == sys.AMD64 && ctxt.Flag_shared {
+		// Lower descriptor register saves before computing stack adjustments.
+		// Emitting PUSH/POP bytes inside doasm would hide their stack effect
+		// from PCSP, parameter addressing, and the nosplit stack analysis.
+		for q := cursym.Func().Text; q != nil; q = q.Link {
+			if (q.As != AMOVQ && q.As != AMOVL) || q.From.Type != obj.TYPE_REG || q.From.Reg != REG_TLS || q.To.Type != obj.TYPE_REG {
+				continue
+			}
+			// On AMD64 both accepted MOV TLS forms resolve a pointer-sized offset.
+			q.As = AMOVQ
+			q.Mark |= tlsDescUnsafe
+			if q.To.Reg == REG_AX {
+				continue
+			}
+
+			dst := q.To
+			q.As = APUSHQ
+			q.From = obj.Addr{Type: obj.TYPE_REG, Reg: REG_AX}
+			q.To = obj.Addr{}
+
+			q = obj.Appendp(q, newprog)
+			q.As = AMOVQ
+			q.From = obj.Addr{Type: obj.TYPE_REG, Reg: REG_TLS}
+			q.To = obj.Addr{Type: obj.TYPE_REG, Reg: REG_AX}
+			q.Mark |= tlsDescUnsafe
+
+			q = obj.Appendp(q, newprog)
+			q.As = AMOVQ
+			q.From = obj.Addr{Type: obj.TYPE_REG, Reg: REG_AX}
+			q.To = dst
+			q.Mark |= tlsDescUnsafe
+
+			q = obj.Appendp(q, newprog)
+			q.As = APOPQ
+			q.To = obj.Addr{Type: obj.TYPE_REG, Reg: REG_AX}
+			q.Mark |= tlsDescUnsafe
+		}
 	}
 
 	var deltasp int32

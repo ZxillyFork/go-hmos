@@ -6,7 +6,9 @@ package arm64
 
 import (
 	"bytes"
+	"cmd/internal/obj"
 	"fmt"
+	"internal/buildcfg"
 	"internal/testenv"
 	"os"
 	"path/filepath"
@@ -395,5 +397,99 @@ func TestPCALIGN(t *testing.T) {
 		if !matched {
 			t.Errorf("The %s testing failed!\ninput: %s\noutput: %s\n", test.name, test.code, out)
 		}
+	}
+}
+
+// The OpenHarmony TLS path must not alter existing platforms' register or
+// thread-pointer alignment contracts.
+func TestRuntimeTLSMacros(t *testing.T) {
+	testenv.MustHaveGoBuild(t)
+	root := testenv.GOROOT(t)
+	assemble := func(t *testing.T, goos, file string, flags ...string) []byte {
+		t.Helper()
+		dir := t.TempDir()
+		// tls_arm64.s includes go_asm.h but uses no generated offsets.
+		if err := os.WriteFile(filepath.Join(dir, "go_asm.h"), nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+		cmd := testenv.Command(t, testenv.GoToolPath(t), "tool", "asm", "-S",
+			"-I", dir, "-I", filepath.Join(root, "pkg", "include"),
+			"-I", filepath.Join(root, "src", "runtime"),
+			"-D", "GOOS_"+goos, "-o", filepath.Join(t.TempDir(), "tls.o"), file)
+		cmd.Args = append(cmd.Args[:len(cmd.Args)-1], append(flags, file)...)
+		cmd.Env = append(cmd.Environ(), "GOOS="+goos, "GOARCH=arm64")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("assemble TLS for %s: %v\n%s", goos, err, out)
+		}
+		return out
+	}
+	t.Run("OpenHarmonyFrame", func(t *testing.T) {
+		out := assemble(t, "openharmony", filepath.Join(root, "src", "runtime", "tls_arm64.s"), "-shared", "-D", "TLS_GD")
+		for _, pattern := range []string{`MOVD.W\s+R30, -32\(RSP\)`, `MOVD.P\s+32\(RSP\), R30`} {
+			if len(regexp.MustCompile(pattern).FindAll(out, -1)) != 2 {
+				t.Fatalf("load_g and save_g must atomically save/restore LR at SP+0 (%s):\n%s", pattern, out)
+			}
+		}
+		if bytes.Contains(out, []byte("R29")) || bytes.Contains(out, []byte("R25")) {
+			t.Fatalf("TLS helpers must preserve frame pointer and callee-saved registers:\n%s", out)
+		}
+	})
+	t.Run("DarwinAlignment", func(t *testing.T) {
+		out := assemble(t, "darwin", filepath.Join(root, "src", "runtime", "tls_arm64.s"))
+		if !regexp.MustCompile(`AND\s+\$-8, R0(, R0)?`).Match(out) {
+			t.Fatalf("Darwin TLS must clear all three low pointer bits:\n%s", out)
+		}
+	})
+	t.Run("LinuxRaceRegisters", func(t *testing.T) {
+		data, err := os.ReadFile(filepath.Join(root, "src", "runtime", "race_arm64.s"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		start := bytes.Index(data, []byte("// Darwin may return unaligned thread pointer."))
+		end := bytes.Index(data, []byte("// func runtime·raceread"))
+		if start < 0 || end <= start {
+			t.Fatal("cannot locate race TLS macros")
+		}
+		source := "#include \"textflag.h\"\n#include \"tls_arm64.h\"\n" + string(data[start:end]) +
+			"\nGLOBL runtime·tls_g(SB), TLSBSS, $8\nTEXT raceTLS(SB), NOSPLIT|NOFRAME, $0-0\nload_g\nRET\n"
+		file := filepath.Join(t.TempDir(), "race_tls.s")
+		if err := os.WriteFile(file, []byte(source), 0600); err != nil {
+			t.Fatal(err)
+		}
+		out := assemble(t, "linux", file)
+		if bytes.Contains(out, []byte("R27")) || !bytes.Contains(out, []byte("R11")) {
+			t.Fatalf("Linux race TLS may clobber R0/R11, not callee-saved R27:\n%s", out)
+		}
+	})
+}
+
+func TestTLSOperandClassNames(t *testing.T) {
+	if got := DRconv(C_TLS_GD); got != "TLS_GD" {
+		t.Errorf("GD operand class = %q, want TLS_GD; regenerate anames7.go", got)
+	}
+	if got := DRconv(C_NCLASS); got != "NCLASS" {
+		t.Errorf("last operand class = %q, want NCLASS", got)
+	}
+}
+
+// Indexed TLS saves must have the same PCSP accounting as explicit ADD/SUB.
+func TestOpenHarmonyTLSStackDelta(t *testing.T) {
+	old := buildcfg.GOOS
+	buildcfg.GOOS = "openharmony"
+	defer func() { buildcfg.GOOS = old }()
+	ctxt := obj.Linknew(&Linkarm64)
+	ctxt.DiagFunc = func(format string, args ...interface{}) { t.Errorf(format, args...) }
+	sym := &obj.LSym{Name: "tlsframe"}
+	sym.Set(obj.AttrNoSplit, true)
+	sym.Set(obj.AttrNoFrame, true)
+	text := &obj.Prog{As: obj.ATEXT, From: obj.Addr{Sym: sym}, To: obj.Addr{Val: int32(0)}}
+	push := &obj.Prog{As: AMOVD, Scond: C_XPRE, From: obj.Addr{Type: obj.TYPE_REG, Reg: REGLINK}, To: obj.Addr{Type: obj.TYPE_MEM, Reg: REGSP, Offset: -32}}
+	pop := &obj.Prog{As: AMOVD, Scond: C_XPOST, From: obj.Addr{Type: obj.TYPE_MEM, Reg: REGSP, Offset: 32}, To: obj.Addr{Type: obj.TYPE_REG, Reg: REGLINK}}
+	text.Link, push.Link, pop.Link = push, pop, &obj.Prog{As: obj.ARET}
+	sym.NewFuncInfo().Text = text
+	preprocess(ctxt, sym, func() *obj.Prog { return new(obj.Prog) })
+	if push.Spadj != 32 || pop.Spadj != -32 {
+		t.Fatalf("TLS push/pop Spadj = %d/%d, want 32/-32", push.Spadj, pop.Spadj)
 	}
 }
