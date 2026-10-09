@@ -83,6 +83,9 @@ func FuzzInstrumented(goos, goarch string) bool {
 // MustLinkExternal reports whether goos/goarch requires external linking
 // with or without cgo dependencies.
 func MustLinkExternal(goos, goarch string, withCgo bool) bool {
+	if goos == "openharmony" {
+		return true
+	}
 	if withCgo {
 		switch goarch {
 		case "mips", "mipsle", "mips64", "mips64le":
@@ -157,6 +160,8 @@ func BuildModeSupported(compiler, buildmode, goos, goarch string) bool {
 			}
 		case "freebsd":
 			return goarch == "amd64"
+		case "openharmony":
+			return goarch == "arm64" || goarch == "amd64"
 		}
 		return false
 
@@ -167,7 +172,8 @@ func BuildModeSupported(compiler, buildmode, goos, goarch string) bool {
 			"freebsd/amd64",
 			"darwin/amd64", "darwin/arm64",
 			"windows/amd64", "windows/386", "windows/arm64",
-			"wasip1/wasm":
+			"wasip1/wasm",
+			"openharmony/arm64", "openharmony/amd64":
 			return true
 		}
 		return false
@@ -187,7 +193,8 @@ func BuildModeSupported(compiler, buildmode, goos, goarch string) bool {
 			"ios/amd64", "ios/arm64",
 			"aix/ppc64",
 			"openbsd/arm64",
-			"windows/386", "windows/amd64", "windows/arm64":
+			"windows/386", "windows/amd64", "windows/arm64",
+			"openharmony/arm64", "openharmony/amd64":
 			return true
 		}
 		return false
@@ -230,7 +237,7 @@ func InternalLinkPIESupported(goos, goarch string) bool {
 // so force the caller to pass that in to centralize that choice.
 func DefaultPIE(goos, goarch string, isRace bool) bool {
 	switch goos {
-	case "android", "ios":
+	case "android", "ios", "openharmony":
 		return true
 	case "windows":
 		if isRace {

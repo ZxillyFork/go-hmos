@@ -3607,7 +3607,7 @@ func swigOneOutputs(file, objdir string, cxx bool) (outGo, outC string) {
 // systems that normally use gold or the GNU linker.
 func (b *Builder) disableBuildID(ldflags []string) []string {
 	switch cfg.Goos {
-	case "android", "dragonfly", "linux", "netbsd":
+	case "android", "dragonfly", "linux", "netbsd", "openharmony":
 		ldflags = append(ldflags, "-Wl,--build-id=none")
 	}
 	return ldflags
