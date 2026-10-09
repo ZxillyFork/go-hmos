@@ -628,9 +628,20 @@ func fixSigactionForCgo(new *sigactiont) {
 
 func getpid() int
 func tgkill(tgid, tid, sig int)
+func tgkillOpenHarmony(tgid, tid, sig int) int32
 
 // signalM sends a signal to mp.
 func signalM(mp *m, sig int) {
+	if GOOS == "openharmony" {
+		if tgkillOpenHarmony(getpid(), int(mp.procid), sig) < 0 && sig == sigPreempt {
+			// A real-time signal can fail with EAGAIN if the signal queue
+			// is full. Acknowledge the failed request so suspendG and the
+			// scheduler can retry once space is available.
+			mp.preemptGen.Add(1)
+			mp.signalPending.Store(0)
+		}
+		return
+	}
 	tgkill(getpid(), int(mp.procid), sig)
 }
 

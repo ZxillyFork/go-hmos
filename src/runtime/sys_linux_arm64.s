@@ -180,6 +180,17 @@ TEXT ·tgkill(SB),NOSPLIT,$0-24
 	SVC
 	RET
 
+#ifdef GOOS_openharmony
+TEXT ·tgkillOpenHarmony(SB),NOSPLIT,$0-28
+	MOVD	tgid+0(FP), R0
+	MOVD	tid+8(FP), R1
+	MOVD	sig+16(FP), R2
+	MOVD	$SYS_tgkill, R8
+	SVC
+	MOVW	R0, ret+24(FP)
+	RET
+#endif
+
 TEXT runtime·setitimer(SB),NOSPLIT|NOFRAME,$0-24
 	MOVW	mode+0(FP), R0
 	MOVD	new+8(FP), R1

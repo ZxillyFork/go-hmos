@@ -176,6 +176,17 @@ TEXT ·tgkill(SB),NOSPLIT,$0
 	SYSCALL
 	RET
 
+#ifdef GOOS_openharmony
+TEXT ·tgkillOpenHarmony(SB),NOSPLIT,$0-28
+	MOVQ	tgid+0(FP), DI
+	MOVQ	tid+8(FP), SI
+	MOVQ	sig+16(FP), DX
+	MOVL	$SYS_tgkill, AX
+	SYSCALL
+	MOVL	AX, ret+24(FP)
+	RET
+#endif
+
 TEXT runtime·setitimer(SB),NOSPLIT,$0-24
 	MOVL	mode+0(FP), DI
 	MOVQ	new+8(FP), SI
