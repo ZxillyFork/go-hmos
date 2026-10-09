@@ -124,7 +124,7 @@ func checkCleanBacktrace(t *testing.T, backtrace string) {
 // 2 - Admin-only attach. Only executables with CAP_SYS_PTRACE.
 // 3 - No attach. No process may call ptrace at all. Irrevocable.
 func checkPtraceScope(t *testing.T) {
-	if runtime.GOOS != "linux" {
+	if runtime.GOOS != "linux" && runtime.GOOS != "openharmony" {
 		return
 	}
 

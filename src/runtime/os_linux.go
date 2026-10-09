@@ -237,21 +237,25 @@ var auxvreadbuf [128]uintptr
 func sysargs(argc int32, argv **byte) {
 	n := argc + 1
 
-	// skip over argv, envp to get to auxv
-	for argv_index(argv, n) != nil {
+	// Musl constructors do not receive argv or auxv on OpenHarmony.
+	if !(GOOS == "openharmony" && (isarchive || islibrary)) {
+		// skip over argv, envp to get to auxv
+		for argv_index(argv, n) != nil {
+			n++
+		}
+
+		// skip NULL separator
 		n++
+
+		// now argv+n is auxv
+		auxvp := (*[1 << 28]uintptr)(add(unsafe.Pointer(argv), uintptr(n)*goarch.PtrSize))
+
+		if pairs := sysauxv(auxvp[:]); pairs != 0 {
+			auxv = auxvp[: pairs*2 : pairs*2]
+			return
+		}
 	}
 
-	// skip NULL separator
-	n++
-
-	// now argv+n is auxv
-	auxvp := (*[1 << 28]uintptr)(add(unsafe.Pointer(argv), uintptr(n)*goarch.PtrSize))
-
-	if pairs := sysauxv(auxvp[:]); pairs != 0 {
-		auxv = auxvp[: pairs*2 : pairs*2]
-		return
-	}
 	// In some situations we don't get a loader-provided
 	// auxv, such as when loaded as a library on Android.
 	// Fall back to /proc/self/auxv.
@@ -369,8 +373,15 @@ func readRandom(r []byte) int {
 }
 
 func goenvs() {
+	if GOOS == "openharmony" && (isarchive || islibrary) {
+		goenvs_openharmony()
+		return
+	}
 	goenvs_unix()
 }
+
+//go:linkname _cgo_get_environ _cgo_get_environ
+var _cgo_get_environ unsafe.Pointer
 
 // Called to do synchronous initialization of Go code built with
 // -buildmode=c-archive or -buildmode=c-shared.
@@ -379,6 +390,14 @@ func goenvs() {
 //go:nosplit
 //go:nowritebarrierrec
 func libpreinit() {
+	if GOOS == "openharmony" {
+		// This runs on a C stack before a g or Go allocator exists.
+		// OpenHarmony requires external linking with runtime/cgo.
+		if _cgo_get_environ == nil {
+			throw("OpenHarmony requires cgo")
+		}
+		asmcgocall_no_g(_cgo_get_environ, unsafe.Pointer(&libcEnviron))
+	}
 	initsig(true)
 }
 
@@ -445,8 +464,42 @@ func rtsigprocmask(how int32, new, old *sigset, size int32)
 //go:nosplit
 //go:nowritebarrierrec
 func sigprocmask(how int32, new, old *sigset) {
-	rtsigprocmask(how, new, old, int32(unsafe.Sizeof(*new)))
+	if GOOS != "openharmony" || inForkedChild {
+		// Calling libc after fork may deadlock on a lock held by a thread
+		// that no longer exists. The child immediately resets and execs.
+		rtsigprocmask(how, new, old, int32(unsafe.Sizeof(*new)))
+		return
+	}
+
+	// OpenHarmony's libc must see signal masks so that its signal-chain
+	// handlers remain usable. As with sigaction, this may run before g
+	// exists or on a signal stack, so do not blindly switch to g0.
+	var ret int32
+	var gp *g
+	if mainStarted {
+		gp = getg()
+	}
+	sp := uintptr(unsafe.Pointer(&how))
+	if gp == nil || sp < gp.stack.lo || sp >= gp.stack.hi {
+		ret = callCgoSigprocmask(uintptr(how), new, old)
+	} else {
+		systemstack(func() {
+			ret = callCgoSigprocmask(uintptr(how), new, old)
+		})
+	}
+	if ret != 0 {
+		throw("OpenHarmony libc pthread_sigmask failed")
+	}
 }
+
+//go:linkname _cgo_sigprocmask _cgo_sigprocmask
+var _cgo_sigprocmask unsafe.Pointer
+
+// Implemented for OpenHarmony's supported architectures only. All calls are
+// eliminated at compile time on other operating systems.
+//
+//go:noescape
+func callCgoSigprocmask(how uintptr, new, old *sigset) int32
 
 func raise(sig uint32)
 func raiseproc(sig uint32)
