@@ -118,6 +118,7 @@ var cnames7 = []string{
 	"GOTADDR",
 	"TLS_LE",
 	"TLS_IE",
+	"TLS_GD",
 	"ROFF",
 	"GOK",
 	"TEXTSIZE",

@@ -2236,10 +2236,11 @@ func span6(ctxt *obj.Link, s *obj.LSym, newprog obj.ProgAlloc) {
 	// a different thread, the TLS address may become invalid.
 	if !CanUse1InsnTLS(ctxt) {
 		useTLS := func(p *obj.Prog) bool {
-			// Only need to mark the second instruction, which has
-			// REG_TLS as Index. (It is okay to interrupt and restart
-			// the first instruction.)
-			return p.From.Index == REG_TLS
+			// For IE TLS only the second instruction needs marking. The
+			// descriptor sequence also saves AX on the stack and calls a
+			// non-Go resolver. Mark every Prog until AX/SP are restored,
+			// then the following TLS load, which uses a thread-local offset.
+			return p.From.Index == REG_TLS || p.Mark&tlsDescUnsafe != 0 || (isOpenharmony && p.To.Index == REG_TLS)
 		}
 		obj.MarkUnsafePoints(ctxt, s.Func().Text, newprog, useTLS, nil)
 	}
@@ -2499,6 +2500,7 @@ func instinit(ctxt *obj.Link) {
 }
 
 var isAndroid = buildcfg.GOOS == "android"
+var isOpenharmony = buildcfg.GOOS == "openharmony"
 
 func prefixof(ctxt *obj.Link, a *obj.Addr) int {
 	if a.Reg < REG_CS && a.Index < REG_CS { // fast path
@@ -5150,6 +5152,28 @@ func (ab *AsmBuf) doasm(ctxt *obj.Link, cursym *obj.LSym, p *obj.Prog) {
 					case objabi.Hlinux, objabi.Hfreebsd:
 						if !ctxt.Flag_shared {
 							log.Fatalf("unknown TLS base location for linux/freebsd without -shared")
+						}
+						if isOpenharmony {
+							// preprocess exposes any AX save/restore as real Progs,
+							// so PCSP describes the entire descriptor sequence.
+							if p.To.Reg != REG_AX {
+								ctxt.Diag("TLS descriptor load must target AX after preprocessing: %v", p)
+								break
+							}
+							// The descriptor ABI returns the thread-pointer offset
+							// in AX and preserves the other registers. Keep this
+							// resolver call distinct from an ordinary Go ABI call.
+							// It has no net SP adjustment in its caller.
+							ab.Put3(0x48, 0x8d, 0x05) // lea runtime.tlsg@tlsdesc(%rip), %rax
+							cursym.AddRel(ctxt, obj.Reloc{
+								Type: objabi.R_AMD64_TLS_GD,
+								Off:  int32(p.Pc + int64(ab.Len())),
+								Siz:  4,
+								Add:  -4,
+							})
+							ab.PutInt32(0)
+							ab.Put2(0xff, 0x10) // call *(%rax); R_X86_64_TLSDESC_CALL
+							break
 						}
 						// Note that this is not generating the same insn as the other cases.
 						//     MOV TLS, R_to
