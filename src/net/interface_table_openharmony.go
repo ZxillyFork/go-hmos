@@ -2,153 +2,133 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build cgo && openharmony
+//go:build openharmony
 
 package net
 
-/*
-#define _GNU_SOURCE 1
-#include <ifaddrs.h>
-#include <sys/socket.h>
-*/
-import "C"
-
 import (
+	"internal/bytealg"
 	"os"
 	"syscall"
 	"unsafe"
 )
 
-type ifreq struct {
-	Name [16]byte
-	Ifru [24]byte
-}
-
-func interfaceTable(ifindex int) ([]Interface, error) {
-	// get all internet address
-	var res *C.struct_ifaddrs
-	gerrno, err := C.getifaddrs(&res)
-	if gerrno != 0 {
-		return nil, os.NewSyscallError("getifaddrs", err)
+// OpenHarmony can deny RTM_GETLINK while allowing RTM_GETADDR. Recover
+// interface indices from the address dump, as musl's getifaddrs does, and
+// retrieve link properties through ioctl.
+func openharmonyInterfaceTable(ifindex int) ([]Interface, error) {
+	tab, err := syscall.NetlinkRIB(syscall.RTM_GETADDR, syscall.AF_UNSPEC)
+	if err != nil {
+		return nil, os.NewSyscallError("netlinkrib", err)
 	}
-	defer C.freeifaddrs(res)
-
-	// create a socket for ioctl syscall
+	msgs, err := syscall.ParseNetlinkMessage(tab)
+	if err != nil {
+		return nil, os.NewSyscallError("parsenetlinkmessage", err)
+	}
 	s, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM|syscall.SOCK_CLOEXEC, 0)
 	if err != nil {
 		return nil, os.NewSyscallError("socket", err)
 	}
 	defer syscall.Close(s)
+	var ift []Interface
+	seen := make(map[int]bool)
+	for _, m := range msgs {
+		if m.Header.Type != syscall.RTM_NEWADDR || len(m.Data) < syscall.SizeofIfAddrmsg {
+			continue
+		}
+		index := int((*syscall.IfAddrmsg)(unsafe.Pointer(&m.Data[0])).Index)
+		if seen[index] || ifindex != 0 && index != ifindex {
+			continue
+		}
+		seen[index] = true
+		var ifr struct {
+			name [16]byte
+			data [24]byte
+		}
+		ioctl := func(cmd uintptr) error {
+			_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(s), cmd, uintptr(unsafe.Pointer(&ifr)))
+			if errno != 0 {
+				return os.NewSyscallError("ioctl", errno)
+			}
+			return nil
+		}
+		*(*int32)(unsafe.Pointer(&ifr.data[0])) = int32(index)
+		if err := ioctl(syscall.SIOCGIFNAME); err != nil {
+			continue // The interface may have disappeared since the dump.
+		}
+		n := bytealg.IndexByte(ifr.name[:], 0)
+		if n <= 0 {
+			continue
+		}
+		ifi := Interface{Index: index, Name: string(ifr.name[:n])}
+		if err := ioctl(syscall.SIOCGIFFLAGS); err != nil {
+			return nil, err
+		}
+		ifi.Flags = linkFlags(uint32(*(*uint16)(unsafe.Pointer(&ifr.data[0]))))
+		if err := ioctl(syscall.SIOCGIFMTU); err == nil {
+			ifi.MTU = int(*(*int32)(unsafe.Pointer(&ifr.data[0])))
+		}
+		if err := ioctl(syscall.SIOCGIFHWADDR); err == nil {
+			// Only Ethernet addresses have the six-byte layout used here.
+			if *(*uint16)(unsafe.Pointer(&ifr.data[0])) == 1 {
+				ifi.HardwareAddr = append(HardwareAddr(nil), ifr.data[2:8]...)
+			}
+		}
+		ift = append(ift, ifi)
+	}
+	return ift, nil
+}
 
-	var ifts []Interface
-	processed := make(map[int]bool)
-	for r := res; r != nil; r = r.ifa_next {
-		ifaAddr := r.ifa_addr
-		if ifaAddr == nil {
-			continue
-		}
-		ift := Interface{
-			Name:  C.GoString(r.ifa_name),
-			Flags: linkFlags(uint32(r.ifa_flags)),
-		}
-
-		ifr := &ifreq{}
-		copy(ifr.Name[:], ift.Name)
-		// retrieve index
-		_, _, ep := syscall.Syscall(syscall.SYS_IOCTL, uintptr(s), syscall.SIOCGIFINDEX, uintptr(unsafe.Pointer(ifr)))
-		if ep != 0 {
-			continue
-		}
-		ift.Index = int(*(*uint32)(unsafe.Pointer(&ifr.Ifru[0])))
-		if processed[ift.Index] || (ifindex != 0 && ift.Index != ifindex) {
-			continue
-		}
-		// retrieve mtu
-		_, _, ep = syscall.Syscall(syscall.SYS_IOCTL, uintptr(s), syscall.SIOCGIFMTU, uintptr(unsafe.Pointer(ifr)))
-		if ep == 0 {
-			ift.MTU = int(*(*uint32)(unsafe.Pointer(&ifr.Ifru[0])))
-		}
-		// retrieve mac addr
-		_, _, ep = syscall.Syscall(syscall.SYS_IOCTL, uintptr(s), syscall.SIOCGIFHWADDR, uintptr(unsafe.Pointer(ifr)))
-		if ep == 0 {
-			// ifr_ifru.ifru_hwaddr.sa_data, skip address family and length(2 bytes).
-			var nonzero bool
-			for _, b := range ifr.Ifru[2:8] {
-				if b != 0 {
-					nonzero = true
-					break
+// If the ifindex is zero, interfaceTable returns mappings of all
+// network interfaces. Otherwise it returns a mapping of a specific
+// interface.
+func interfaceTable(ifindex int) ([]Interface, error) {
+	tab, err := syscall.NetlinkRIB(syscall.RTM_GETLINK, syscall.AF_UNSPEC)
+	if err != nil {
+		return openharmonyInterfaceTable(ifindex)
+	}
+	msgs, err := syscall.ParseNetlinkMessage(tab)
+	if err != nil {
+		return nil, os.NewSyscallError("parsenetlinkmessage", err)
+	}
+	var ift []Interface
+loop:
+	for _, m := range msgs {
+		switch m.Header.Type {
+		case syscall.NLMSG_DONE:
+			break loop
+		case syscall.RTM_NEWLINK:
+			ifim := (*syscall.IfInfomsg)(unsafe.Pointer(&m.Data[0]))
+			if ifindex == 0 || ifindex == int(ifim.Index) {
+				attrs, err := syscall.ParseNetlinkRouteAttr(&m)
+				if err != nil {
+					return nil, os.NewSyscallError("parsenetlinkrouteattr", err)
+				}
+				ift = append(ift, *newLink(ifim, attrs))
+				if ifindex == int(ifim.Index) {
+					break loop
 				}
 			}
-			if nonzero {
-				ift.HardwareAddr = ifr.Ifru[2:8]
-			}
 		}
-
-		ifts = append(ifts, ift)
-		processed[ift.Index] = true
 	}
-
-	return ifts, nil
+	return ift, nil
 }
 
+// If the ifi is nil, interfaceAddrTable returns addresses for all
+// network interfaces. Otherwise it returns addresses for a specific
+// interface.
 func interfaceAddrTable(ifi *Interface) ([]Addr, error) {
-	// get all internet address
-	var res *C.struct_ifaddrs
-	gerrno, err := C.getifaddrs(&res)
-	if gerrno != 0 {
-		return nil, os.NewSyscallError("getifaddrs", err)
-	}
-	defer C.freeifaddrs(res)
-
-	// create a socket for ioctl syscall
-	s, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM|syscall.SOCK_CLOEXEC, 0)
+	tab, err := syscall.NetlinkRIB(syscall.RTM_GETADDR, syscall.AF_UNSPEC)
 	if err != nil {
-		return nil, os.NewSyscallError("socket", err)
+		return nil, os.NewSyscallError("netlinkrib", err)
 	}
-	defer syscall.Close(s)
-
-	var addrs []Addr
-	for r := res; r != nil; r = r.ifa_next {
-		ifaAddr := r.ifa_addr
-		if ifaAddr == nil {
-			continue
-		}
-		ifr := &ifreq{}
-		copy(ifr.Name[:], C.GoString(r.ifa_name))
-		// retrieve index
-		_, _, ep := syscall.Syscall(syscall.SYS_IOCTL, uintptr(s), syscall.SIOCGIFINDEX, uintptr(unsafe.Pointer(ifr)))
-		if ep != 0 {
-			continue
-		}
-		index := int(*(*uint32)(unsafe.Pointer(&ifr.Ifru[0])))
-		if ifi != nil && ifi.Index != index {
-			continue
-		}
-
-		rsa := (*syscall.RawSockaddrAny)(unsafe.Pointer(ifaAddr))
-		switch rsa.Addr.Family {
-		case syscall.AF_INET:
-			sa := (*syscall.RawSockaddrInet4)(unsafe.Pointer(rsa))
-			ipv4 := &IPNet{IP: IPv4(sa.Addr[0], sa.Addr[1], sa.Addr[2], sa.Addr[3])}
-
-			maskAddr := r.ifa_netmask
-			if maskAddr != nil {
-				maskSa := (*syscall.RawSockaddrInet4)(unsafe.Pointer(maskAddr))
-				ipv4.Mask = IPMask(append([]byte(nil), maskSa.Addr[:]...))
-			}
-			addrs = append(addrs, ipv4)
-		case syscall.AF_INET6:
-			sa := (*syscall.RawSockaddrInet6)(unsafe.Pointer(rsa))
-			ipv6 := &IPNet{IP: make(IP, IPv6len)}
-			copy(ipv6.IP, sa.Addr[:])
-			maskAddr := r.ifa_netmask
-			if maskAddr != nil {
-				maskSa := (*syscall.RawSockaddrInet6)(unsafe.Pointer(maskAddr))
-				ipv6.Mask = IPMask(append([]byte(nil), maskSa.Addr[:]...))
-			}
-			addrs = append(addrs, ipv6)
-		}
+	msgs, err := syscall.ParseNetlinkMessage(tab)
+	if err != nil {
+		return nil, os.NewSyscallError("parsenetlinkmessage", err)
 	}
-
-	return addrs, nil
+	ifat, err := addrTable(ifi, msgs)
+	if err != nil {
+		return nil, err
+	}
+	return ifat, nil
 }

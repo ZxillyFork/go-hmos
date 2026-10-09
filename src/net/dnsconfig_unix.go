@@ -16,7 +16,7 @@ import (
 )
 
 // See resolv.conf(5) on a Linux machine.
-func dnsReadConfig(filename string) *dnsConfig {
+func dnsReadConfigFile(filename string) *dnsConfig {
 	conf := &dnsConfig{
 		ndots:    1,
 		timeout:  5 * time.Second,
