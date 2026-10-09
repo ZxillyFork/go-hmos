@@ -23,6 +23,12 @@ var certDirectories = []string{
 }
 
 func init() {
+	if goos.IsOpenharmony == 1 {
+		// Public system roots only. User/app trust policies require the
+		// platform certificate service and must be supplied by the app.
+		certFiles = nil
+		certDirectories = []string{"/etc/security/certificates"}
+	}
 	if goos.IsAndroid == 1 {
 		certDirectories = append(certDirectories,
 			"/system/etc/security/cacerts",    // Android system roots
