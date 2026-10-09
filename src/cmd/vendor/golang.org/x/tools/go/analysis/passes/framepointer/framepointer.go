@@ -85,7 +85,7 @@ func run(pass *analysis.Pass) (any, error) {
 	if !ok {
 		return nil, nil
 	}
-	if build.Default.GOOS != "linux" && build.Default.GOOS != "darwin" {
+	if build.Default.GOOS != "linux" && build.Default.GOOS != "openharmony" && build.Default.GOOS != "darwin" {
 		return nil, nil
 	}
 
