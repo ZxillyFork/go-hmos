@@ -25,6 +25,8 @@ var platformZoneSources = []string{
 	"/etc/zoneinfo",
 }
 
+var platformLocalZone func() string
+
 func initLocal() {
 	// consult $TZ to find the time zone to use.
 	// no $TZ means use the system default /etc/localtime.
@@ -36,6 +38,14 @@ func initLocal() {
 	tz, ok := syscall.Getenv("TZ")
 	switch {
 	case !ok:
+		if platformLocalZone != nil {
+			if name := platformLocalZone(); name != "" {
+				if z, err := loadLocation(name, platformZoneSources); err == nil {
+					localLoc = *z
+					return
+				}
+			}
+		}
 		z, err := loadLocation("localtime", []string{"/etc"})
 		if err == nil {
 			localLoc = *z

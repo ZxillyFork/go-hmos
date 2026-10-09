@@ -7,3 +7,5 @@
 package time
 
 var OpenHarmonyLoadTzinfoFromTzdata = ohosLoadTzinfoFromTzdata
+
+var OpenHarmonyReadTimeZone = ohosReadTimeZone
