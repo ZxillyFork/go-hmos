@@ -1239,6 +1239,9 @@ func (t *tester) internalLink() bool {
 	if goos == "android" {
 		return false
 	}
+	if goos == "openharmony" {
+		return false
+	}
 	if goos == "ios" {
 		return false
 	}
@@ -1276,7 +1279,7 @@ func (t *tester) internalLinkPIE() bool {
 
 func (t *tester) externalLinkPIE() bool {
 	// General rule is if -buildmode=pie and -linkmode=external both work, then they work together.
-	return t.internalLinkPIE() && t.extLink()
+	return (t.internalLinkPIE() || goos == "openharmony") && t.extLink()
 }
 
 // supportedBuildmode reports whether the given build mode is supported.
@@ -1360,6 +1363,14 @@ func (t *tester) registerCgoTests(heading string) {
 			if t.internalLink() && t.internalLinkPIE() {
 				cgoTest("internal-pie", "test", "internal", "pie")
 			}
+		}
+
+	case "openharmony":
+		// Only external linking is supported. Do not inherit Linux's
+		// static-link or reserved-signal assumptions.
+		if t.extLink() {
+			cgoTest("external", "testtls", "external", "")
+			cgoTest("external-pie", "testtls", "external", "pie")
 		}
 
 	case "aix", "android", "dragonfly", "freebsd", "linux", "netbsd", "openbsd":
@@ -1786,6 +1797,8 @@ func buildModeSupported(compiler, buildmode, goos, goarch string) bool {
 			}
 		case "freebsd":
 			return goarch == "amd64"
+		case "openharmony":
+			return goarch == "arm64" || goarch == "amd64"
 		}
 		return false
 
@@ -1796,7 +1809,8 @@ func buildModeSupported(compiler, buildmode, goos, goarch string) bool {
 			"freebsd/amd64",
 			"darwin/amd64", "darwin/arm64",
 			"windows/amd64", "windows/386", "windows/arm64",
-			"wasip1/wasm":
+			"wasip1/wasm",
+			"openharmony/arm64", "openharmony/amd64":
 			return true
 		}
 		return false
@@ -1816,7 +1830,8 @@ func buildModeSupported(compiler, buildmode, goos, goarch string) bool {
 			"ios/amd64", "ios/arm64",
 			"aix/ppc64",
 			"openbsd/arm64",
-			"windows/386", "windows/amd64", "windows/arm64":
+			"windows/386", "windows/amd64", "windows/arm64",
+			"openharmony/arm64", "openharmony/amd64":
 			return true
 		}
 		return false
