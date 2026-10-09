@@ -464,7 +464,7 @@ func rtsigprocmask(how int32, new, old *sigset, size int32)
 //go:nosplit
 //go:nowritebarrierrec
 func sigprocmask(how int32, new, old *sigset) {
-	if GOOS != "openharmony" || inForkedChild {
+	if GOOS != "openharmony" || !iscgo || inForkedChild {
 		// Calling libc after fork may deadlock on a lock held by a thread
 		// that no longer exists. The child immediately resets and execs.
 		rtsigprocmask(how, new, old, int32(unsafe.Sizeof(*new)))

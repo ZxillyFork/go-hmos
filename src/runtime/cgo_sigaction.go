@@ -21,7 +21,7 @@ var _cgo_sigaction unsafe.Pointer
 //go:nosplit
 //go:nowritebarrierrec
 func sigaction(sig uint32, new, old *sigactiont) {
-	if GOOS == "openharmony" && _cgo_sigaction == nil && !inForkedChild {
+	if GOOS == "openharmony" && iscgo && _cgo_sigaction == nil && !inForkedChild {
 		throw("OpenHarmony requires libc sigaction")
 	}
 	// racewalk.go avoids adding sanitizing instrumentation to package runtime,

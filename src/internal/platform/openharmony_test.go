@@ -8,8 +8,11 @@ import "testing"
 
 func TestOpenHarmonySupport(t *testing.T) {
 	for _, arch := range []string{"amd64", "arm64"} {
-		if !CgoSupported("openharmony", arch) || !MustLinkExternal("openharmony", arch, false) || !DefaultPIE("openharmony", arch, false) {
-			t.Errorf("openharmony/%s must support cgo and require external PIE linking", arch)
+		if !CgoSupported("openharmony", arch) || !MustLinkExternal("openharmony", arch, true) || !DefaultPIE("openharmony", arch, false, true) {
+			t.Errorf("openharmony/%s must support cgo with external PIE linking", arch)
+		}
+		if MustLinkExternal("openharmony", arch, false) || DefaultPIE("openharmony", arch, false, false) {
+			t.Errorf("openharmony/%s must support standalone executables without cgo", arch)
 		}
 		for _, mode := range []string{"archive", "default", "exe", "pie", "c-shared", "c-archive"} {
 			if !BuildModeSupported("gc", mode, "openharmony", arch) {
