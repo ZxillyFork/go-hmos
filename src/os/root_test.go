@@ -1159,7 +1159,7 @@ var rootConsistencyTestCases = []rootConsistencyTest{{
 	},
 	open: "link/",
 	check: func(t *testing.T) {
-		if runtime.GOOS == "linux" && strings.HasPrefix(t.Name(), "TestRootConsistencyRename/") {
+		if (runtime.GOOS == "linux" || runtime.GOOS == "openharmony") && strings.HasPrefix(t.Name(), "TestRootConsistencyRename/") {
 			// Linux does not resolve "symlink" in rename("symlink/", "target").
 			t.Skip("known inconsistency on linux")
 		}
@@ -3292,7 +3292,7 @@ func TestRootMultiRename(t *testing.T) {
 			// TODO: check that the file is in its new location
 		}
 
-		if runtime.GOOS == "linux" && (test.source.slashSuffix() || test.target.slashSuffix()) {
+		if (runtime.GOOS == "linux" || runtime.GOOS == "openharmony") && (test.source.slashSuffix() || test.target.slashSuffix()) {
 			return "", errSkipRootConsistencyCheck
 		}
 
@@ -3390,7 +3390,7 @@ func TestRootMultiRemove(t *testing.T) {
 		case test.target.kind == testFileAbsent:
 			test.wantError(t, gotErr, errAny)
 		case test.target.anySlashSuffix():
-			if runtime.GOOS == "linux" {
+			if runtime.GOOS == "linux" || runtime.GOOS == "openharmony" {
 				// Linux treats rmdir("symlink/") as an error when
 				// "symlink" is a symlink to a directory.
 				// Root.Remove prefers the POSIX interpretation

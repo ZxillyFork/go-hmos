@@ -41,7 +41,7 @@ func specialFiles() []string {
 		ps = []string{
 			"/dev/null",
 		}
-	case "linux":
+	case "linux", "openharmony":
 		ps = []string{
 			"/dev/null",
 			"/proc/stat",
