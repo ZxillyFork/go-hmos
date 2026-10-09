@@ -839,3 +839,30 @@ func TestContextImportGoWithUseAllFiles(t *testing.T) {
 		t.Fatalf("Error mismatch:\n\tGot:  %v\n\tWant: %v", got, errNoModules)
 	}
 }
+
+// OpenHarmony intentionally inherits Linux source files while exposing its
+// own build tag. Keep file-name selection consistent with explicit tags.
+func TestOpenHarmonyBuildTags(t *testing.T) {
+	ctxt := Default
+	ctxt.GOOS, ctxt.GOARCH = "openharmony", "arm64"
+	for _, tag := range []string{"openharmony", "linux", "unix", "arm64"} {
+		if !ctxt.matchTag(tag, nil) {
+			t.Errorf("missing tag %q", tag)
+		}
+	}
+	for _, tag := range []string{"android", "windows", "amd64"} {
+		if ctxt.matchTag(tag, nil) {
+			t.Errorf("unexpected tag %q", tag)
+		}
+	}
+	for _, name := range []string{"x_linux.go", "x_linux_arm64.go", "x_openharmony.go", "x_openharmony_arm64.go"} {
+		if !ctxt.goodOSArchFile(name, nil) {
+			t.Errorf("excluded compatible file %q", name)
+		}
+	}
+	for _, name := range []string{"x_android.go", "x_openharmony_amd64.go"} {
+		if ctxt.goodOSArchFile(name, nil) {
+			t.Errorf("included incompatible file %q", name)
+		}
+	}
+}
