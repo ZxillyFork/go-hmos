@@ -945,7 +945,7 @@ func f(x *X) { // Make sure that there is dwarf recorded for *X.
 		t.Fatalf("*main.X DIE had no runtime type attr. DIE: %v", dies[0])
 	}
 
-	if platform.DefaultPIE(runtime.GOOS, runtime.GOARCH, false) {
+	if platform.DefaultPIE(runtime.GOOS, runtime.GOARCH, false, testenv.HasCGO()) {
 		return // everything is PIE, addresses are relocated
 	}
 	if rtAttr.(uint64)+types.Addr != addr {

@@ -2746,7 +2746,7 @@ func externalLinkingReason(s *modload.Loader, p *Package) (what string) {
 	isPIE := false
 	if cfg.BuildBuildmode == "pie" {
 		isPIE = true
-	} else if cfg.BuildBuildmode == "default" && platform.DefaultPIE(cfg.BuildContext.GOOS, cfg.BuildContext.GOARCH, cfg.BuildRace) {
+	} else if cfg.BuildBuildmode == "default" && platform.DefaultPIE(cfg.BuildContext.GOOS, cfg.BuildContext.GOARCH, cfg.BuildRace, cfg.BuildContext.CgoEnabled) {
 		isPIE = true
 	}
 	// If we are building a PIE, and we are on a system

@@ -1,10 +1,8 @@
-# A missing SDK/cgo must give an actionable error, not an invalid ELF binary.
+# Standalone executables do not need cgo or an SDK C compiler.
 env GOOS=openharmony GOARCH=arm64 CGO_ENABLED=0
-! go build -o $devnull cmd/buildid
-stderr 'openharmony requires CGO_ENABLED=1 and an OpenHarmony SDK C compiler'
+go build -o $WORK/buildid-arm64 cmd/buildid
 env GOARCH=amd64
-! go build -o $devnull cmd/buildid
-stderr 'openharmony requires CGO_ENABLED=1 and an OpenHarmony SDK C compiler'
+go build -o $WORK/buildid-amd64 cmd/buildid
 
 # The command and runtime share the actual OpenHarmony target identity.
 go env GOOS

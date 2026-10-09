@@ -213,9 +213,6 @@ func instrumentInit() {
 }
 
 func buildModeInit() {
-	if cfg.Goos == "openharmony" && !cfg.BuildContext.CgoEnabled {
-		base.Fatalf("openharmony requires CGO_ENABLED=1 and an OpenHarmony SDK C compiler")
-	}
 	gccgo := cfg.BuildToolchainName == "gccgo"
 	var codegenArg string
 
@@ -263,7 +260,7 @@ func buildModeInit() {
 		ldBuildmode = "c-shared"
 	case "default":
 		ldBuildmode = "exe"
-		if platform.DefaultPIE(cfg.Goos, cfg.Goarch, cfg.BuildRace) {
+		if platform.DefaultPIE(cfg.Goos, cfg.Goarch, cfg.BuildRace, cfg.BuildContext.CgoEnabled) {
 			ldBuildmode = "pie"
 			if cfg.Goos != "windows" && !gccgo {
 				codegenArg = "-shared"
@@ -279,7 +276,7 @@ func buildModeInit() {
 			pkgsFilter = oneMainPkg
 		}
 	case "pie":
-		if cfg.BuildRace && !platform.DefaultPIE(cfg.Goos, cfg.Goarch, cfg.BuildRace) {
+		if cfg.BuildRace && !platform.DefaultPIE(cfg.Goos, cfg.Goarch, cfg.BuildRace, cfg.BuildContext.CgoEnabled) {
 			base.Fatalf("-buildmode=pie not supported when -race is enabled on %s/%s", cfg.Goos, cfg.Goarch)
 		}
 		if gccgo {

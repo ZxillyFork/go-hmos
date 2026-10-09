@@ -8,7 +8,7 @@ package runtime
 
 // OpenHarmony reserves signals 1-34, and API 19 also uses 35-45.
 // Preserve their dispositions except for synchronous faults required by Go
-// and SIGPIPE. These handlers always go through libc's signal chain. Do not
+// and SIGPIPE. In cgo builds these handlers go through libc's signal chain. Do not
 // repurpose SIGURG or SIGPROF, or alter the kernel's fault signal numbers.
 // os/signal does not expose reserved signals as application notifications.
 var sigtable = [...]sigTabT{

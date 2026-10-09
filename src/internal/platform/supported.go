@@ -84,7 +84,7 @@ func FuzzInstrumented(goos, goarch string) bool {
 // with or without cgo dependencies.
 func MustLinkExternal(goos, goarch string, withCgo bool) bool {
 	if goos == "openharmony" {
-		return true
+		return withCgo
 	}
 	if withCgo {
 		switch goarch {
@@ -233,12 +233,15 @@ func InternalLinkPIESupported(goos, goarch string) bool {
 }
 
 // DefaultPIE reports whether goos/goarch produces a PIE binary when using the
-// "default" buildmode. On Windows this is affected by -race,
-// so force the caller to pass that in to centralize that choice.
-func DefaultPIE(goos, goarch string, isRace bool) bool {
+// "default" buildmode. The choice depends on -race on Windows and whether
+// cgo is enabled on OpenHarmony.
+func DefaultPIE(goos, goarch string, isRace, withCgo bool) bool {
 	switch goos {
-	case "android", "ios", "openharmony":
+	case "android", "ios":
 		return true
+	case "openharmony":
+		// Standalone Go executables do not need the system dynamic loader.
+		return withCgo
 	case "windows":
 		if isRace {
 			// PIE is not supported with -race on windows;

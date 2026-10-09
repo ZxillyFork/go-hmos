@@ -138,7 +138,7 @@ func testGoExec(t *testing.T, iscgo, isexternallinker bool) {
 				return true
 			}
 		}
-		if platform.DefaultPIE(runtime.GOOS, runtime.GOARCH, false) {
+		if platform.DefaultPIE(runtime.GOOS, runtime.GOARCH, false, testenv.HasCGO()) {
 			// Code is always relocated if the default buildmode is PIE.
 			return true
 		}
