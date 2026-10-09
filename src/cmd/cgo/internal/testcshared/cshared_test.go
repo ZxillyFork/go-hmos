@@ -118,7 +118,7 @@ func testMain(m *testing.M) int {
 		if GOARCH == "arm64" {
 			libgodir += "_shared"
 		}
-	case "dragonfly", "freebsd", "linux", "netbsd", "openbsd", "solaris", "illumos":
+	case "dragonfly", "freebsd", "linux", "openharmony", "netbsd", "openbsd", "solaris", "illumos":
 		libgodir += "_shared"
 	}
 	cc = append(cc, "-I", filepath.Join("pkg", libgodir))
@@ -651,7 +651,7 @@ func TestSignalHandlersWithNotify(t *testing.T) {
 
 func TestPIE(t *testing.T) {
 	switch GOOS {
-	case "linux", "android":
+	case "linux", "android", "openharmony":
 		break
 	default:
 		t.Skipf("Skipping on %s", GOOS)
@@ -967,4 +967,23 @@ func TestSymbolicFunctions(t *testing.T) {
 		"-ldflags=-extldflags=-Wl,-Bsymbolic-functions",
 		"-o", libname, "./libgo",
 	)
+}
+
+// TestOpenHarmonyDynamicTLS exercises a dlopen library from foreign pthreads.
+// It must run on the target: host ELF inspection does not validate OHOS musl.
+func TestOpenHarmonyDynamicTLS(t *testing.T) {
+	globalSkip(t)
+	if runtime.GOOS != "openharmony" || GOOS != "openharmony" {
+		t.Skip("requires an OpenHarmony host and native C compiler")
+	}
+	testenv.MustHaveCGO(t)
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "libopenharmony.so")
+	loader := filepath.Join(dir, "loader")
+	run(t, nil, "go", "build", "-buildmode=c-shared", "-o", lib, "./openharmony/library")
+	runCC(t, "-O2", "-pthread", "-o", loader, filepath.Join("openharmony", "loader.c"), "-ldl")
+	out := run(t, nil, loader, lib)
+	if !strings.Contains(out, "PASS: dlopen") || !strings.Contains(out, "PASS: 100 interface-discovery calls") {
+		t.Fatalf("incomplete dynamic TLS test: %s", out)
+	}
 }
