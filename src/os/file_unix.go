@@ -390,7 +390,7 @@ func Remove(name string) error {
 func tempDir() string {
 	dir := Getenv("TMPDIR")
 	if dir == "" {
-		if runtime.GOOS == "android" {
+		if runtime.GOOS == "android" || runtime.GOOS == "openharmony" {
 			dir = "/data/local/tmp"
 		} else {
 			dir = "/tmp"

@@ -43,16 +43,15 @@ func MustHaveExec(t testing.TB) {
 
 var tryExec = sync.OnceValue(func() error {
 	switch runtime.GOOS {
-	case "wasip1", "js", "ios":
+	case "wasip1", "js", "ios", "openharmony":
 	default:
 		// Assume that exec always works on non-mobile platforms and Android.
 		return nil
 	}
 
-	// ios has an exec syscall but on real iOS devices it might return a
-	// permission error. In an emulated environment (such as a Corellium host)
-	// it might succeed, so if we need to exec we'll just have to try it and
-	// find out.
+	// iOS and OpenHarmony provide exec syscalls, but an application sandbox
+	// may reject process execution. Developer/system or emulated environments
+	// may permit it, so probe rather than assuming either behavior.
 	//
 	// As of 2023-04-19 wasip1 and js don't have exec syscalls at all, but we
 	// may as well use the same path so that this branch can be tested without
