@@ -52,10 +52,10 @@ func openharmonyDNSConfig(path string) (*dnsConfig, error) {
 	}
 	conf := &dnsConfig{ndots: 1, timeout: 5 * time.Second, attempts: 2}
 	if timeout := int32(byteorder.LEUint32(response[4:8])); timeout > 0 {
-		conf.timeout = time.Duration(timeout) * time.Millisecond
+		conf.timeout = time.Duration(min(timeout, 60000)) * time.Millisecond
 	}
-	if attempts := byteorder.LEUint32(response[8:12]); attempts > 0 && attempts <= 5 {
-		conf.attempts = int(attempts)
+	if attempts := byteorder.LEUint32(response[8:12]); attempts > 0 {
+		conf.attempts = int(min(attempts, 10))
 	}
 	for i := 0; i < 5; i++ {
 		b := response[16+i*51 : 16+(i+1)*51]
