@@ -125,6 +125,14 @@ func (fd *netFD) connect(ctx context.Context, la, ra syscall.Sockaddr) (rsa sysc
 		}
 		nerr, err := getsockoptIntFunc(fd.pfd.Sysfd, syscall.SOL_SOCKET, syscall.SO_ERROR)
 		if err != nil {
+			if runtime.GOOS == "openharmony" && (err == syscall.EACCES || err == syscall.EPERM) {
+				// OpenHarmony's shell domain may connect a TCP socket but
+				// deny SO_ERROR. Only accept a connection whose peer can
+				// be verified; writability alone does not imply success.
+				if rsa, peerErr := syscall.Getpeername(fd.pfd.Sysfd); peerErr == nil {
+					return rsa, nil
+				}
+			}
 			return nil, os.NewSyscallError("getsockopt", err)
 		}
 		switch err := syscall.Errno(nerr); err {
