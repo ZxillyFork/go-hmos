@@ -6,6 +6,7 @@ package net
 
 import (
 	"os"
+	"runtime"
 	"syscall"
 )
 
@@ -18,7 +19,14 @@ func setDefaultSockopts(s, family, sotype int, ipv6only bool) error {
 	}
 	if (sotype == syscall.SOCK_DGRAM || sotype == syscall.SOCK_RAW) && family != syscall.AF_UNIX {
 		// Allow broadcast.
-		return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(s, syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1))
+		err := syscall.SetsockoptInt(s, syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1)
+		if runtime.GOOS == "openharmony" && sotype == syscall.SOCK_DGRAM && (err == syscall.EACCES || err == syscall.EPERM) {
+			// OpenHarmony's shell domain can send unicast datagrams but
+			// cannot enable broadcast. Leave broadcast disabled; a later
+			// attempt to send to a broadcast address will still fail.
+			return nil
+		}
+		return os.NewSyscallError("setsockopt", err)
 	}
 	return nil
 }
