@@ -639,6 +639,7 @@ func signalM(mp *m, sig int) {
 			// scheduler can retry once space is available.
 			mp.preemptGen.Add(1)
 			mp.signalPending.Store(0)
+			pendingPreemptSignals.Add(-1)
 		}
 		return
 	}

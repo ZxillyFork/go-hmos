@@ -2108,7 +2108,7 @@ found:
 	checkdead()
 	unlock(&sched.lock)
 
-	if GOOS == "darwin" || GOOS == "ios" {
+	if GOOS == "darwin" || GOOS == "ios" || GOOS == "openharmony" {
 		// Make sure pendingPreemptSignals is correct when an M exits.
 		// For #41702.
 		if mp.signalPending.Load() != 0 {
@@ -5301,8 +5301,9 @@ func syscall_runtime_AfterForkInChild() {
 }
 
 // pendingPreemptSignals is the number of preemption signals
-// that have been sent but not received. This is only used on Darwin.
-// For #41702.
+// that have been sent but not received. This is used on Darwin (see #41702)
+// and OpenHarmony, where the preemption signal's default action is to
+// terminate the process after exec resets the Go signal handler.
 var pendingPreemptSignals atomic.Int32
 
 // Called from syscall package before Exec.
@@ -5312,9 +5313,9 @@ func syscall_runtime_BeforeExec() {
 	// Prevent thread creation during exec.
 	execLock.lock()
 
-	// On Darwin, wait for all pending preemption signals to
-	// be received. See issue #41702.
-	if GOOS == "darwin" || GOOS == "ios" {
+	// Wait for pending preemption signals before exec resets their handler.
+	// preemptM holds execLock for reading, so no new ones can be sent.
+	if GOOS == "darwin" || GOOS == "ios" || GOOS == "openharmony" {
 		for pendingPreemptSignals.Load() > 0 {
 			osyield()
 		}

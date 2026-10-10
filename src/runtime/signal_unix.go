@@ -359,7 +359,7 @@ func doSigPreempt(gp *g, ctxt *sigctxt) {
 	gp.m.preemptGen.Add(1)
 	gp.m.signalPending.Store(0)
 
-	if GOOS == "darwin" || GOOS == "ios" {
+	if GOOS == "darwin" || GOOS == "ios" || GOOS == "openharmony" {
 		pendingPreemptSignals.Add(-1)
 	}
 }
@@ -373,14 +373,14 @@ const preemptMSupported = true
 // safe-point, it will preempt the goroutine. It always atomically
 // increments mp.preemptGen after handling a preemption request.
 func preemptM(mp *m) {
-	// On Darwin, don't try to preempt threads during exec.
-	// Issue #41702.
-	if GOOS == "darwin" || GOOS == "ios" {
+	// Don't send preemption signals during exec on Darwin (issue #41702)
+	// or OpenHarmony, whose preemption signal is fatal without its handler.
+	if GOOS == "darwin" || GOOS == "ios" || GOOS == "openharmony" {
 		execLock.rlock()
 	}
 
 	if mp.signalPending.CompareAndSwap(0, 1) {
-		if GOOS == "darwin" || GOOS == "ios" {
+		if GOOS == "darwin" || GOOS == "ios" || GOOS == "openharmony" {
 			pendingPreemptSignals.Add(1)
 		}
 
@@ -392,7 +392,7 @@ func preemptM(mp *m) {
 		signalM(mp, sigPreempt)
 	}
 
-	if GOOS == "darwin" || GOOS == "ios" {
+	if GOOS == "darwin" || GOOS == "ios" || GOOS == "openharmony" {
 		execLock.runlock()
 	}
 }
@@ -457,9 +457,10 @@ func sigtrampgo(sig uint32, info *siginfo, ctx unsafe.Pointer) {
 			// executing non-Go code.
 			// We got past sigfwdgo, so we know that there is
 			// no non-Go signal handler for sigPreempt.
-			// The default behavior for sigPreempt is to ignore
-			// the signal, so badsignal will be a no-op anyway.
-			if GOOS == "darwin" || GOOS == "ios" {
+			// Ignore the runtime's preemption request here too. In
+			// particular, OpenHarmony's real-time signal must not be
+			// forwarded to its terminating default disposition.
+			if GOOS == "darwin" || GOOS == "ios" || GOOS == "openharmony" {
 				pendingPreemptSignals.Add(-1)
 			}
 			return
