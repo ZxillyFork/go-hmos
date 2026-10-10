@@ -26,7 +26,9 @@ func init() {
 	if goos.IsOpenharmony == 1 {
 		// Public system roots only. User/app trust policies require the
 		// platform certificate service and must be supplied by the app.
-		certFiles = nil
+		// The public CA bundle is also accessible from the shell domain,
+		// which cannot enumerate the certificate directories.
+		certFiles = []string{"/etc/ssl/certs/cacert.pem"}
 		certDirectories = []string{"/etc/security/certificates"}
 	}
 	if goos.IsAndroid == 1 {
